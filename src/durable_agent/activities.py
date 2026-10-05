@@ -58,6 +58,7 @@ from durable_agent.risk import Policy, classify, load_policy
 log = logging.getLogger(__name__)
 
 MAX_TOOL_ROUNDS = 8
+HEARTBEAT_PULSE_SECONDS = 3
 FINAL_SCHEMA: dict[str, Any] = {
     "type": "object",
     "properties": {
@@ -106,13 +107,20 @@ class AnalystActivities:
     @activity.defn
     async def retrieve_context(self, request: AnalystRequest) -> RetrievedContext:
         """Top-k governance passages plus the redacted schema. Zero tokens."""
-        hits = self.index.search(request.question, k=4)
-        # Always include the policy sections the SQL step must respect, even if the question
-        # does not mention them; they are short and they anchor the citations.
-        must_have = {"policies.md#pii-columns", "policies.md#row-limits"}
+        hits = self.index.search(request.question, k=6)
+        # Always include the sections the SQL step must respect even when the question does not
+        # mention them: the two policy rules every query is checked against, and the one
+        # business rule (cancelled orders) that silently changes almost every metric.
+        must_have = {
+            "policies.md#pii-columns",
+            "policies.md#row-limits",
+            "data_dictionary.md#cancelled-orders",
+        }
         extra = [
             p
-            for p in self.index.search("PII columns row limits approval", k=6)
+            for p in self.index.search(
+                "PII columns row limits approval cancelled orders excluded", k=10
+            )
             if p.citation in must_have
         ]
         seen: dict[str, Passage] = {}
@@ -159,6 +167,36 @@ class AnalystActivities:
         info = activity.info()
         checkpoint = info.heartbeat_details[0] if info.heartbeat_details else None
         resumed = checkpoint is not None
+
+        # A single Claude turn can outlast the heartbeat timeout, so a background pulse re-sends
+        # the latest checkpoint every few seconds while the activity is alive. The explicit
+        # heartbeat after each tool round updates what the pulse sends.
+        latest: dict[str, Any] = {"ckpt": checkpoint}
+
+        async def pulse() -> None:
+            while True:
+                await asyncio.sleep(HEARTBEAT_PULSE_SECONDS)
+                if latest["ckpt"] is not None:
+                    activity.heartbeat(latest["ckpt"])
+                else:
+                    activity.heartbeat()
+
+        pulse_task = asyncio.create_task(pulse())
+        try:
+            return await self._generate_sql(request, context, plan, checkpoint, resumed, latest)
+        finally:
+            pulse_task.cancel()
+
+    async def _generate_sql(
+        self,
+        request: AnalystRequest,
+        context: RetrievedContext,
+        plan: QueryPlan,
+        checkpoint: dict[str, Any] | None,
+        resumed: bool,
+        latest: dict[str, Any],
+    ) -> GeneratedSQL:
+        info = activity.info()
 
         async with tool_client(self.settings.mcp_server_url) as tools:
             mcp_tools = {
@@ -239,14 +277,14 @@ class AnalystActivities:
                 messages.append({"role": "user", "content": results})
 
                 # Checkpoint: a retry resumes here instead of replaying earlier turns.
-                activity.heartbeat(
-                    {
-                        "messages": list(messages),  # snapshot; the list keeps growing
-                        "tool_calls": list(tool_calls),
-                        "usage": usage.model_dump(),
-                        "validated": validated,
-                    }
-                )
+                ckpt = {
+                    "messages": list(messages),  # snapshot; the list keeps growing
+                    "tool_calls": list(tool_calls),
+                    "usage": usage.model_dump(),
+                    "validated": validated,
+                }
+                latest["ckpt"] = ckpt
+                activity.heartbeat(ckpt)
                 await self._maybe_crash("generate_sql", info.attempt, len(tool_calls))
 
         if final is None:

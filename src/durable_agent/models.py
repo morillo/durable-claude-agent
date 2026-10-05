@@ -174,8 +174,14 @@ class AnalystResult(BaseModel):
     approval: ApprovalDecision | None = None
     result: ExecutionResult | None = None
     summary: Summary | None = None
-    citations: list[str] = Field(default_factory=list)
+    citations: list[str] = Field(
+        default_factory=list, description="Merged: retrieval + policy sections."
+    )
+    retrieved_citations: list[str] = Field(
+        default_factory=list, description="From retrieve_context only."
+    )
     usage: LLMUsage = Field(default_factory=lambda: LLMUsage(model="none"))
     error: str | None = None
     tool_calls: list[str] = Field(default_factory=list)
+    sql_validated: bool = False
     resumed_from_checkpoint: bool = False

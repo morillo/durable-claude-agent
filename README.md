@@ -5,7 +5,7 @@ so every step gets retries, timeouts, a human-approval gate before risky queries
 recovery. Ships with an evaluation harness that scores SQL correctness, tool use, and
 retrieval quality.
 
-> **Status: M4 complete (minimum viable demo).** Milestones:
+> **Status: M5 complete.** Milestones:
 >
 > | # | Milestone | State |
 > |---|-----------|-------|
@@ -14,7 +14,7 @@ retrieval quality.
 > | M2 | MCP server (4 tools) + LanceDB retrieval over `governance/` | ✅ |
 > | M3 | Temporal workflow, approval signal, CLI | ✅ |
 > | M4 | Crash-recovery demo + recording | ✅ |
-> | M5 | Eval harness + baseline scorecard | ⏳ |
+> | M5 | Eval harness + baseline scorecard | ✅ |
 > | M6 | Observability (OTel → Phoenix), docs, CI evals | ⏳ |
 
 ## Quickstart (so far)
@@ -154,3 +154,35 @@ Two honest limits. First, the heartbeat timeout is the recovery latency floor: w
 timeout the retry started about 7 s after the new worker came up. Second, if a worker dies
 between a Claude response and the next heartbeat, that one turn is repeated on retry. The
 response cache then serves it for free, but it is still a second request.
+
+## Evaluation (M5)
+
+```bash
+make eval            # 32 questions through the real workflow; ~$0.75 uncached, ~$0.05 with the response cache
+make eval-gold       # recompute gold result hashes after changing seed data or gold SQL
+```
+
+The harness boots a private Temporal dev server and an in-process MCP server, runs one
+`AnalystWorkflow` per question with a real worker, auto-approves gated runs, and scores five
+things. Running through the workflow rather than calling the LLM in isolation is deliberate: it
+is the only way to catch a gate that executes before approval or a result model that fails to
+serialize. The committed baseline is [`evals/baseline_scorecard.md`](evals/baseline_scorecard.md).
+
+| Metric | Baseline | What it measures |
+|---|---|---|
+| Execution accuracy | **96.4%** (27/28) | gold vs generated result sets on DuckDB, order- and column-name-insensitive |
+| Risk classification | **100%** (32/32) | deterministic class equals the expected class |
+| Retrieval recall@k | **89.1%** | expected governance sections among the k=6 retrieved passages |
+| Tool-use judge | **100%** | Claude grades necessity, sequencing, and sufficiency against a written rubric |
+| Approval behavior | **100%** (7/7) | policy-violating runs paused or blocked and never executed first |
+
+Cost for the full uncached run: about $0.75, of which the judge is about 6 cents. The tiers are
+simple aggregates, multi-join, time windows, ambiguous phrasing that needs the data dictionary,
+and policy violations (PII, restricted table, write, export, external files).
+
+What one eval iteration changed, as an example of the loop this enables: the first run scored
+57% on approval behavior because the model answered "delete all cancelled orders" with a count
+query instead of refusing. One prompt rule (refuse the request itself when it is a write,
+export, or external read; do not substitute) took it to 100%. The judge's first version failed
+53% of runs for "not searching governance" because it could not see the passages the planner
+had already supplied; giving the judge that evidence fixed the metric, not the agent.

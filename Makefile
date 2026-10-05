@@ -6,7 +6,7 @@ PY  = $(UV) run
 
 .DEFAULT_GOAL := help
 
-.PHONY: help install lint format typecheck test check secrets-scan seed index mcp smoke-mcp temporal worker ask start approve status demo-crash record-demo
+.PHONY: help install lint format typecheck test check secrets-scan seed index mcp smoke-mcp temporal worker ask start approve status demo-crash record-demo eval eval-gold
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
@@ -96,3 +96,14 @@ demo-crash: ## Kill the worker mid-generate_sql, restart it, show the run resume
 
 record-demo: ## Record make demo-crash to docs/demo/crash-recovery.gif with vhs (brew install vhs)
 	vhs docs/demo/crash-recovery.tape
+
+# ---------------------------------------------------------------------------
+# Evaluation (runs the real workflow on a private Temporal dev server + in-process MCP server)
+# ---------------------------------------------------------------------------
+EVAL_CONCURRENCY ?= 4
+
+eval: ## Run the eval dataset through the real workflow; writes evals/results/<ts>/scorecard.md (~$1-3 first run, ~free cached)
+	$(PY) python -m evals.runner --concurrency $(EVAL_CONCURRENCY) $(EVAL_ARGS)
+
+eval-gold: ## Recompute gold result hashes in evals/dataset.jsonl after changing seed data or gold SQL
+	$(PY) python -m evals.runner --write-gold

@@ -127,9 +127,11 @@ non-cancelled orders. Uses the price charged, not the list price.
 
 ### Time periods
 
-Fiscal year equals calendar year. "Last year" and other relative phrases are ambiguous
-against a static dataset; the data covers 2024-01-01 through 2025-12-31, and the agent should
-state the exact date range it used. Month boundaries use `order_date`, not `order_ts`.
+Fiscal year equals calendar year. The data covers 2024-01-01 through 2025-12-31. Relative
+phrases resolve against the data, not the wall clock: "last year" and "the most recent year"
+mean the latest complete calendar year in the data (2025); "the year before" means 2024. The
+agent should always state the exact date range it used. Month boundaries use `order_date`, not
+`order_ts`.
 
 ### Country
 

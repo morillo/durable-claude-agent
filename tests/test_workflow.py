@@ -226,6 +226,7 @@ def test_safe_path_executes_and_summarizes(env_and_client: Any) -> None:
         "summarize",
     ]
     assert result.summary and "3000" in result.summary.answer
+    assert result.sql_validated is True and result.tool_calls == ["get_schema", "validate_sql"]
     assert result.approval is None
     assert result.usage.calls == 4 and abs(result.usage.cost_usd - 0.0077) < 1e-9
     assert result.citations == ["policies.md#row-limits"]

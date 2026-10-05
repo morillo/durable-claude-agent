@@ -68,6 +68,7 @@ ignore = [
 "tests/**" = ["S105", "S106", "S108", "E501"]  # fake tokens, tmp paths, long SQL literals
 # SQL is assembled from identifiers we own (table names discovered on disk), never user input.
 "src/durable_agent/lakehouse.py" = ["S608"]
+"evals/**" = ["E501"]  # long rubric and report strings
 
 [tool.ruff.format]
 quote-style = "double"
@@ -77,8 +78,8 @@ python_version = "3.12"
 strict = true
 warn_unreachable = true
 pretty = true
-mypy_path = "src"
-packages = ["durable_agent"]
+mypy_path = "src:."
+packages = ["durable_agent", "evals"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

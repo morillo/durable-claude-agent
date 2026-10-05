@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from anthropic.types.beta import BetaMessage
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from durable_agent.llm import ResponseCache, _strict_schema, estimate_cost, usage_from_message
 from durable_agent.models import LLMUsage
@@ -60,13 +60,19 @@ def test_strict_schema_tightens_objects() -> None:
         x: int
 
     class Outer(BaseModel):
-        name: str
+        name: str = Field(max_length=10)
         items: list[Inner]
         maybe: str | None = None
+        score: int = Field(ge=0, le=1)
 
     schema = _strict_schema(Outer)
     assert schema["additionalProperties"] is False
-    assert set(schema["required"]) == {"name", "items", "maybe"}
+    assert set(schema["required"]) == {"name", "items", "maybe", "score"}
+    assert "maxLength" not in schema["properties"]["name"]
+    assert (
+        "minimum" not in schema["properties"]["score"]
+        and "maximum" not in schema["properties"]["score"]
+    )
     inner = schema["$defs"]["Inner"]
     assert inner["additionalProperties"] is False and inner["required"] == ["x"]
 

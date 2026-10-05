@@ -212,12 +212,35 @@ def text_of(message: BetaMessage) -> str:
     return "".join(getattr(b, "text", "") for b in message.content if b.type == "text").strip()
 
 
+# JSON Schema keywords the structured-outputs grammar does not accept; pydantic emits them for
+# Field(ge=..., max_length=...) constraints. They are validation hints, so dropping them is safe:
+# pydantic still enforces them when we parse the response.
+_UNSUPPORTED_KEYWORDS = frozenset(
+    {
+        "minimum",
+        "maximum",
+        "exclusiveMinimum",
+        "exclusiveMaximum",
+        "minLength",
+        "maxLength",
+        "minItems",
+        "maxItems",
+        "pattern",
+        "format",
+        "multipleOf",
+    }
+)
+
+
 def _strict_schema(model: type[BaseModel]) -> dict[str, Any]:
     """Pydantic JSON schema tightened for the API: no additional properties, all required."""
     schema = model.model_json_schema()
 
     def tighten(node: Any) -> None:
         if isinstance(node, dict):
+            for key in list(node):
+                if key in _UNSUPPORTED_KEYWORDS:
+                    del node[key]
             if node.get("type") == "object" and "properties" in node:
                 node["additionalProperties"] = False
                 node["required"] = list(node["properties"])

@@ -120,7 +120,8 @@ class AnalystWorkflow:
             start_to_close_timeout=timedelta(seconds=60),
             retry_policy=TOOL_RETRY,
         )
-        state.citations = [p.citation for p in context.passages]
+        state.retrieved_citations = [p.citation for p in context.passages]
+        state.citations = list(state.retrieved_citations)
 
         # 2. plan (fast model)
         self._set_stage(Stage.PLANNING)
@@ -149,6 +150,7 @@ class AnalystWorkflow:
             gen.tool_calls,
             gen.resumed_from_checkpoint,
         )
+        state.sql_validated = gen.validated
         state.usage = state.usage.add(gen.usage)
 
         # 4. deterministic risk classification: the only signal that gates execution

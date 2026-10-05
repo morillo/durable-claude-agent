@@ -43,5 +43,32 @@ jobs:
       - name: Secrets scan
         run: uv run detect-secrets scan --baseline .secrets.baseline
 
-  # Added in M5: a manual-dispatch job that runs `make eval` with ANTHROPIC_API_KEY
-  # from repository secrets and uploads evals/results/ as an artifact.
+  evals:
+    name: eval harness (manual)
+    if: github.event_name == 'workflow_dispatch' && inputs.run_evals
+    runs-on: ubuntu-latest
+    needs: checks
+    env:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      RUN_SQL_CAPABILITY_TOKEN: ci-eval-token
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - name: Install
+        run: uv sync --all-groups
+      - name: Seed + index
+        run: |
+          uv run python -m durable_agent.seed --out data/lakehouse
+          uv run python -m durable_agent.retrieval.index --governance governance --out data/index
+      - name: Install Temporal CLI
+        run: |
+          curl -sSf https://temporal.download/cli.sh | sh
+          echo "$HOME/.temporalio/bin" >> "$GITHUB_PATH"
+      - name: Run evals
+        run: uv run python -m evals.runner --concurrency 4
+      - uses: actions/upload-artifact@v4
+        with:
+          name: eval-results
+          path: evals/results/
