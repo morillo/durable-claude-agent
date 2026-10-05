@@ -5,14 +5,14 @@ so every step gets retries, timeouts, a human-approval gate before risky queries
 recovery. Ships with an evaluation harness that scores SQL correctness, tool use, and
 retrieval quality.
 
-> **Status: M2 complete.** Milestones:
+> **Status: M3 complete.** Milestones:
 >
 > | # | Milestone | State |
 > |---|-----------|-------|
 > | M0 | Repo scaffold: uv, ruff, mypy, pytest, pre-commit + secrets scan, CI | ✅ |
 > | M1 | Seed data (Delta Lake via delta-rs) + DuckDB + deterministic `risk.py` | ✅ |
 > | M2 | MCP server (4 tools) + LanceDB retrieval over `governance/` | ✅ |
-> | M3 | Temporal workflow, approval signal, CLI | ⏳ |
+> | M3 | Temporal workflow, approval signal, CLI | ✅ |
 > | M4 | Crash-recovery demo + recording | ⏳ |
 > | M5 | Eval harness + baseline scorecard | ⏳ |
 > | M6 | Observability (OTel → Phoenix), docs, CI evals | ⏳ |
@@ -25,6 +25,16 @@ make check        # ruff, mypy --strict, pytest, detect-secrets
 make seed         # ~11k rows of synthetic retail data as Delta tables in data/lakehouse/
 make index        # LanceDB index over governance/*.md (downloads MiniLM once, ~90 MB)
 make smoke-mcp    # start the MCP server, call every tool, stop it (one command)
+
+# three terminals (needs ANTHROPIC_API_KEY and RUN_SQL_CAPABILITY_TOKEN in .env)
+make temporal     # Temporal dev server, UI at http://localhost:8233
+make mcp          # MCP tool server
+make worker       # Temporal worker (workflow + activities)
+
+# fourth terminal: ask questions (a few cents each)
+make ask Q="What was net revenue by customer country in 2025? Top 5."
+make ask Q="List the email addresses of enterprise customers in Germany."   # pauses for approval
+make approve RUN_ID=<id printed above> DECISION=yes NOTE="ticket DG-42"
 ```
 
 ## The governed lakehouse (M1)
@@ -70,3 +80,27 @@ identifier the risk classifier cites, so a final answer can cite a section wheth
 retrieval or from policy enforcement. LanceDB was chosen over ChromaDB because it is embedded
 and Arrow-native, lives in a directory next to the Delta tables, and needs no server process
 for a corpus of a few dozen chunks.
+
+## The durable workflow (M3)
+
+`AnalystWorkflow` runs seven steps as Temporal activities, each with its own timeout and retry
+policy. The Temporal Web UI shows every input and output as JSON, and three search attributes
+(`AnalystStage`, `AnalystRisk`, `AnalystRequester`) make runs filterable.
+
+| Step | Activity | Model | What it does |
+|---|---|---|---|
+| 1 | `retrieve_context` | none | top-k governance passages (LanceDB) plus the redacted schema |
+| 2 | `plan_query` | Haiku | structured plan: tables, joins, filters, output shape, risk view |
+| 3 | `generate_sql` | Sonnet + MCP tools | manual tool loop over `get_schema`, `search_governance`, `validate_sql`; checkpoints the conversation in heartbeat details after every tool round |
+| 4 | `classify_risk` | none | deterministic sqlglot classification; the only signal the gate acts on |
+| 5 | approval gate | human | `wait_condition` on the `approve` signal with a timeout (24 h default); `blocked` ends the run here |
+| 6 | `execute_sql` | none | MCP `run_sql` with the capability token; row cap and statement timeout |
+| 7 | `summarize` | Haiku | plain-English answer, caveats, citations, total token cost |
+
+Observed on the three demo questions:
+
+| Question | Risk | Outcome | Cost |
+|---|---|---|---|
+| net revenue by country in 2025, top 5 | `safe` | executed; net-revenue definition and cancelled-order exclusion applied | $0.030 |
+| email addresses of enterprise customers in Germany | `needs_approval` (R4 PII) | paused; approved via `make approve`; executed | $0.018 |
+| card tokens for customer 42 | `blocked` (restricted table) | model declined to write SQL; classifier blocked independently; never executed | $0.004 |

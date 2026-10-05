@@ -50,6 +50,15 @@ class Settings(BaseSettings):
         default=True,
         description="Enable server-side refusal fallbacks (fallbacks='default') on Sonnet.",
     )
+    llm_effort: str = Field(
+        default="medium",
+        description="output_config.effort for models that support it (Sonnet). low|medium|high.",
+    )
+    llm_cache: bool = Field(
+        default=True,
+        description="Cache identical API requests in SQLite so retries and re-runs cost nothing.",
+    )
+    llm_cache_path: Path = Path("./data/llm_cache.sqlite")
 
     # --- Temporal -----------------------------------------------------------
     temporal_address: str = "localhost:7233"

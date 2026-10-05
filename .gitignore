@@ -19,6 +19,7 @@ data/lakehouse/
 data/index/
 data/*.duckdb
 data/llm_cache.sqlite
+data/temporal.sqlite*
 
 # Eval outputs (baseline scorecard is copied into docs/ when promoted)
 evals/results/
