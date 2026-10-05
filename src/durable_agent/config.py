@@ -67,6 +67,11 @@ class Settings(BaseSettings):
     # --- Lakehouse ----------------------------------------------------------
     lakehouse_path: Path = Path("./data/lakehouse")
     index_path: Path = Path("./data/index")
+    governance_path: Path = Field(
+        default=Path("./governance"),
+        description="Folder holding data_dictionary.md and policies.md (the retrieval corpus "
+        "and the machine-readable policy block).",
+    )
     max_rows: int = Field(default=1000, ge=1, le=100_000)
     query_timeout_seconds: int = Field(default=30, ge=1, le=600)
 

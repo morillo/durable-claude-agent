@@ -6,7 +6,7 @@ PY  = $(UV) run
 
 .DEFAULT_GOAL := help
 
-.PHONY: help install lint format typecheck test check secrets-scan precommit
+.PHONY: help install lint format typecheck test check secrets-scan seed
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
@@ -33,3 +33,11 @@ secrets-scan: ## Scan the tree for committed secrets against the baseline
 	$(PY) detect-secrets scan --baseline .secrets.baseline
 
 check: lint typecheck test secrets-scan ## Everything CI runs
+
+# ---------------------------------------------------------------------------
+# Data
+# ---------------------------------------------------------------------------
+LAKEHOUSE_PATH ?= data/lakehouse
+
+seed: ## Generate the synthetic retail Delta tables under data/lakehouse (zero tokens)
+	$(PY) python -m durable_agent.seed --out $(LAKEHOUSE_PATH)

@@ -7,8 +7,12 @@ license = { text = "MIT" }
 authors = [{ name = "Carlos Morillo", email = "carlos.morillo@gmail.com" }]
 requires-python = ">=3.12,<3.13"
 dependencies = [
+    "deltalake>=1.6,<2",
+    "duckdb>=1.5,<2",
+    "pyarrow>=21",
     "pydantic>=2.11,<3",
     "pydantic-settings>=2.10,<3",
+    "sqlglot>=28,<31",
 ]
 
 [project.scripts]
@@ -22,6 +26,7 @@ dev = [
     "pytest-asyncio>=1.2",
     "detect-secrets>=1.5",
     "pre-commit>=4.3",
+    "pyarrow-stubs>=20",
 ]
 
 [build-system]
@@ -54,7 +59,9 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["S105", "S106", "S108"]  # fake tokens and tmp paths in tests
+"tests/**" = ["S105", "S106", "S108", "E501"]  # fake tokens, tmp paths, long SQL literals
+# SQL is assembled from identifiers we own (table names discovered on disk), never user input.
+"src/durable_agent/lakehouse.py" = ["S608"]
 
 [tool.ruff.format]
 quote-style = "double"
