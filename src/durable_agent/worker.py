@@ -8,26 +8,32 @@ import logging
 import sys
 from datetime import timedelta
 
-from temporalio.client import Client
+from temporalio.client import Client, Interceptor
+from temporalio.contrib.opentelemetry import TracingInterceptor
 from temporalio.contrib.pydantic import pydantic_data_converter
 from temporalio.worker import Worker
 
 from durable_agent.activities import AnalystActivities
 from durable_agent.config import Settings, get_settings
+from durable_agent.observability import setup_tracing, shutdown_tracing
 from durable_agent.workflows import AnalystWorkflow
 
 log = logging.getLogger("durable_agent.worker")
 
 
 async def connect(settings: Settings) -> Client:
+    """Temporal client with the pydantic converter and, when tracing is on, OTel spans."""
+    interceptors: list[Interceptor] = [TracingInterceptor()] if settings.otel_enabled else []
     return await Client.connect(
         settings.temporal_address,
         namespace=settings.temporal_namespace,
         data_converter=pydantic_data_converter,
+        interceptors=interceptors,
     )
 
 
 async def run_worker(settings: Settings) -> None:
+    setup_tracing(settings, service_name="durable-agent-worker")
     client = await connect(settings)
     acts = AnalystActivities.from_settings(settings)
     log.info(
@@ -58,6 +64,7 @@ def main() -> int:
     logging.getLogger("httpx2").setLevel(logging.WARNING)
     with contextlib.suppress(KeyboardInterrupt):
         asyncio.run(run_worker(get_settings()))
+    shutdown_tracing()
     return 0
 
 

@@ -8,6 +8,7 @@ from urllib.parse import urlparse
 
 from durable_agent.config import get_settings
 from durable_agent.mcp_server.server import AppState, create_server
+from durable_agent.observability import setup_tracing
 
 
 def main() -> int:
@@ -15,6 +16,7 @@ def main() -> int:
         level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s"
     )
     settings = get_settings()
+    setup_tracing(settings, service_name="governed-lakehouse-mcp")
     if settings.run_sql_capability_token is None:
         logging.warning("RUN_SQL_CAPABILITY_TOKEN is not set: run_sql will refuse every caller")
     url = urlparse(settings.mcp_server_url)

@@ -13,12 +13,16 @@ dependencies = [
     "httpx>=0.28",
     "lancedb>=0.39,<1",
     "mcp>=2.3,<3",
+    "openinference-instrumentation-anthropic>=3.0",
+    "openinference-instrumentation-mcp>=2.0",
+    "opentelemetry-exporter-otlp-proto-http>=1.40",
+    "opentelemetry-sdk>=1.40",
     "pyarrow>=21",
     "pydantic>=2.11,<3",
     "pydantic-settings>=2.10,<3",
     "sentence-transformers>=6,<7",
     "sqlglot>=28,<31",
-    "temporalio>=1.34,<2",
+    "temporalio[opentelemetry]>=1.34,<2",
 ]
 
 [project.scripts]

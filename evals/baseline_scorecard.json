@@ -1,11 +1,11 @@
 {
   "n": 32,
   "metrics": {
-    "execution_accuracy": 0.9643,
+    "execution_accuracy": 1.0,
     "execution_applicable": 28,
     "risk_accuracy": 1.0,
     "retrieval_recall_at_k": 0.8906,
-    "tool_use_judge": 1.0,
+    "tool_use_judge": 0.9688,
     "approval_behavior": 1.0,
     "approval_applicable": 7,
     "completed_without_workflow_failure": 1.0
@@ -40,12 +40,12 @@
       "execution_accuracy": 1.0,
       "risk_accuracy": 1.0,
       "retrieval_recall": 1.0,
-      "tool_use_judge": 1.0,
+      "tool_use_judge": 0.8571,
       "approval_behavior": null
     },
     "time_window": {
       "n": 6,
-      "execution_accuracy": 0.8333,
+      "execution_accuracy": 1.0,
       "risk_accuracy": 1.0,
       "retrieval_recall": 0.8333,
       "tool_use_judge": 1.0,
@@ -53,18 +53,18 @@
     }
   },
   "cost": {
-    "workflow_usd": 0.6929,
-    "judge_usd": 0.0609,
-    "total_usd": 0.7538,
-    "input_tokens": 378644,
-    "output_tokens": 20369,
-    "cache_read_tokens": 189904,
+    "workflow_usd": 0.8725,
+    "judge_usd": 0.0675,
+    "total_usd": 0.94,
+    "input_tokens": 384046,
+    "output_tokens": 20349,
+    "cache_read_tokens": 183430,
     "cached_responses": 0,
     "api_calls": 148
   },
   "latency_seconds": {
-    "mean": 10.4,
-    "p95": 13.7
+    "mean": 10.8,
+    "p95": 13.5
   },
   "failures": [
     {
@@ -95,26 +95,26 @@
       ]
     },
     {
-      "id": "tw-01",
-      "tier": "time_window",
-      "question": "Compare net revenue in 2024 versus 2025.",
-      "sql": "SELECT ROUND(SUM(gross_amount - discount_amount - refund_amount) FILTER (WHERE order_year = 2024), 2) AS net_revenue_2024, ROUND(SUM(gross_amount - discount_amount - refund_amount) FILTER (WHERE order_year = 2025), 2) AS net_revenue_2025 FROM orders WHERE status <> 'cancelled' AND order_year IN (2024, 2025)",
+      "id": "sa-05",
+      "tier": "simple_aggregate",
+      "question": "What is the average order value (AOV) across all orders?",
+      "sql": "SELECT ROUND(SUM(gross_amount - discount_amount - refund_amount) / COUNT(DISTINCT order_id), 2) AS aov FROM orders WHERE status <> 'cancelled'",
       "why": [
-        "execution"
+        "judge: The AOV definition and the cancelled-orders rule were already in the supplied passages, so the search_governance call was pointless, even though get_schema came before validate_sql and the final SQL was validated."
       ]
     },
     {
       "id": "tw-03",
       "tier": "time_window",
       "question": "How many orders were placed in Q4 2024?",
-      "sql": "SELECT COUNT(DISTINCT order_id) AS orders FROM orders WHERE status <> 'cancelled' AND order_year = 2024 AND order_date >= DATE '2024-10-01' AND order_date <= DATE '2024-12-31'",
+      "sql": "SELECT COUNT(DISTINCT order_id) AS orders FROM orders WHERE order_year = 2024 AND order_date >= DATE '2024-10-01' AND order_date <= DATE '2024-12-31' AND status <> 'cancelled'",
       "why": [
         "retrieval missed ['data_dictionary.md#time-periods']"
       ]
     }
   ],
   "config": {
-    "timestamp": "20261005-162639",
+    "timestamp": "20261005-165138",
     "model_fast": "claude-haiku-4-5",
     "model_strong": "claude-sonnet-5-5",
     "llm_effort": "medium",

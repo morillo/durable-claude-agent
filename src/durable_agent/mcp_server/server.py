@@ -37,8 +37,11 @@ from pydantic import BaseModel, Field
 
 from durable_agent.config import Settings
 from durable_agent.lakehouse import Lakehouse, QueryTimeoutError
+from durable_agent.observability import tracer
 from durable_agent.retrieval import Embedder, GovernanceIndex, SentenceTransformerEmbedder
 from durable_agent.risk import Policy, RiskLevel, classify, load_policy
+
+_tracer = tracer(__name__)
 
 MODEL_TOOLS: tuple[str, ...] = ("get_schema", "search_governance", "validate_sql")
 PRIVILEGED_TOOLS: tuple[str, ...] = ("run_sql",)
@@ -186,6 +189,10 @@ def create_server(state: AppState) -> MCPServer:
         Restricted tables are omitted and PII sample values are redacted. Use exactly these
         table and column names; the dialect is DuckDB.
         """
+        with _tracer.start_as_current_span("tool.get_schema"):
+            return await _get_schema()
+
+    async def _get_schema() -> SchemaResult:
         ddl = await _run_blocking(
             lambda: state.lakehouse.describe_schema(
                 exclude=state.policy.restricted_tables, mask_columns=state.policy.pii_columns
@@ -208,7 +215,10 @@ def create_server(state: AppState) -> MCPServer:
         tables, and row limits before writing SQL.
         """
         k = max(1, min(int(k), 10))
-        passages = await anyio.to_thread.run_sync(state.index.search, query, k)
+        with _tracer.start_as_current_span(
+            "tool.search_governance", attributes={"query": query, "k": k}
+        ):
+            passages = await anyio.to_thread.run_sync(state.index.search, query, k)
         return SearchResult(
             query=query,
             passages=[
@@ -232,7 +242,12 @@ def create_server(state: AppState) -> MCPServer:
         reasons you can (add a LIMIT, drop PII columns) and validate again. Blocked statements
         are not planned.
         """
-        risk = await _run_blocking(_risk_out, sql, state)
+        with _tracer.start_as_current_span("tool.validate_sql", attributes={"sql": sql}) as span:
+            risk = await _run_blocking(_risk_out, sql, state)
+            span.set_attribute("risk.level", risk.level)
+            return await _validate(sql, risk)
+
+    async def _validate(sql: str, risk: RiskOut) -> ValidationResult:
         if risk.level == RiskLevel.BLOCKED.value:
             return ValidationResult(
                 valid=False, error="blocked by policy: " + "; ".join(risk.reasons), risk=risk
@@ -256,6 +271,13 @@ def create_server(state: AppState) -> MCPServer:
         statements are refused regardless of credentials. Results are capped at the configured
         row limit and statement timeout.
         """
+        with _tracer.start_as_current_span("tool.run_sql", attributes={"sql": sql}) as span:
+            result = await _run(sql, ctx)
+            span.set_attribute("rows", result.row_count)
+            span.set_attribute("risk.level", result.risk_level)
+            return result
+
+    async def _run(sql: str, ctx: Context) -> RunResult:
         expected = settings.run_sql_capability_token
         presented = _bearer(ctx)
         if (

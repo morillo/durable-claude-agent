@@ -36,6 +36,7 @@ from pydantic import BaseModel
 
 from durable_agent.config import Settings
 from durable_agent.models import LLMUsage
+from durable_agent.observability import tracer
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -46,14 +47,25 @@ PRICES: dict[str, dict[str, float]] = {
     "claude-sonnet-5": {"input": 2.00, "output": 10.00, "cache_read": 0.20, "cache_write": 2.50},
     "claude-opus-5-5": {"input": 4.00, "output": 20.00, "cache_read": 0.20, "cache_write": 5.00},
 }
+_tracer = tracer(__name__)
 FALLBACK_BETA = "server-side-fallback-2026-07-01"
 NO_EFFORT_MODELS = ("claude-haiku-4-5",)
+
+
+def price_for(model: str) -> dict[str, float] | None:
+    """Longest-prefix match: the API reports dated ids such as ``claude-haiku-4-5-20251001``."""
+    best = None
+    for key in PRICES:
+        matches = model == key or model.startswith(key + "-")
+        if matches and (best is None or len(key) > len(best)):
+            best = key
+    return PRICES[best] if best else None
 
 
 def estimate_cost(
     model: str, input_tokens: int, output_tokens: int, cache_read: int, cache_write: int
 ) -> float:
-    p = PRICES.get(model)
+    p = price_for(model)
     if p is None:
         return 0.0
     usd = (
@@ -164,17 +176,27 @@ class LLM:
             request["betas"] = [FALLBACK_BETA]
 
         key = ResponseCache.key(request)
-        if self.cache is not None:
-            hit = self.cache.get(key)
-            if hit is not None:
-                return hit, usage_from_message(hit, cached=True)
+        with _tracer.start_as_current_span("llm.request", attributes={"llm.model": model}) as span:
+            if self.cache is not None:
+                hit = self.cache.get(key)
+                if hit is not None:
+                    span.set_attribute("llm.cache_hit", True)
+                    span.set_attribute("llm.cost_usd", 0.0)
+                    return hit, usage_from_message(hit, cached=True)
 
-        message = await self.client.beta.messages.create(**request)
-        if message.stop_reason == "refusal":
-            raise LLMRefusalError(message)
-        if self.cache is not None and message.stop_reason in ("end_turn", "tool_use"):
-            self.cache.put(key, message)
-        return message, usage_from_message(message)
+            message = await self.client.beta.messages.create(**request)
+            if message.stop_reason == "refusal":
+                span.set_attribute("llm.refusal", True)
+                raise LLMRefusalError(message)
+            if self.cache is not None and message.stop_reason in ("end_turn", "tool_use"):
+                self.cache.put(key, message)
+            usage = usage_from_message(message)
+            span.set_attribute("llm.cache_hit", False)
+            span.set_attribute("llm.cost_usd", usage.cost_usd)
+            span.set_attribute("llm.input_tokens", usage.input_tokens)
+            span.set_attribute("llm.output_tokens", usage.output_tokens)
+            span.set_attribute("llm.cache_read_tokens", usage.cache_read_tokens)
+            return message, usage
 
     async def structured(
         self,

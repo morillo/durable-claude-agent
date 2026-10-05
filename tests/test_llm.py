@@ -36,6 +36,10 @@ def test_estimate_cost_uses_price_table() -> None:
     expected = (1000 * 2 + 200 * 10 + 3000 * 0.20 + 500 * 2.50) / 1_000_000
     assert estimate_cost("claude-sonnet-5-5", 1000, 200, 3000, 500) == round(expected, 6)
     assert estimate_cost("unknown-model", 1000, 200, 0, 0) == 0.0
+    # dated ids as returned by the API resolve to the base price; "sonnet-5" must not match "sonnet-5-5"
+    assert estimate_cost("claude-haiku-4-5-20251001", 1000, 0, 0, 0) == 0.001
+    assert estimate_cost("claude-sonnet-5-5-20260301", 1000, 0, 0, 0) == 0.002
+    assert estimate_cost("claude-sonnet-5", 1000, 0, 0, 0) == 0.002
 
 
 def test_usage_from_message_and_cached_variant() -> None:

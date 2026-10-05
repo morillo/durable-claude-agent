@@ -18,6 +18,7 @@ from temporalio.client import Client, WorkflowHandle
 from durable_agent import __version__
 from durable_agent.config import Settings, get_settings
 from durable_agent.models import AnalystRequest, AnalystResult, ApprovalDecision, Stage
+from durable_agent.observability import setup_tracing, shutdown_tracing
 from durable_agent.worker import connect
 from durable_agent.workflows import AnalystWorkflow
 
@@ -189,10 +190,14 @@ def print_report(r: AnalystResult, *, as_json: bool = False) -> None:
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     settings = get_settings()
+    setup_tracing(settings, service_name="durable-agent-cli")
     cmd = {"ask": cmd_ask, "start": cmd_start, "approve": cmd_approve, "status": cmd_status}[
         args.cmd
     ]
-    return asyncio.run(cmd(settings, args))
+    try:
+        return asyncio.run(cmd(settings, args))
+    finally:
+        shutdown_tracing()
 
 
 if __name__ == "__main__":

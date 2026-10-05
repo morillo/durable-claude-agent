@@ -1,0 +1,40 @@
+# Local infrastructure: Temporal dev server + Arize Phoenix (OTLP trace collector and UI).
+#
+#   make up      -> docker compose up -d
+#   make down    -> docker compose down
+#
+# `make temporal` (brew-installed CLI) is the alternative for Temporal; do not run both, they
+# share port 7233. Phoenix is only available through compose.
+services:
+  temporal:
+    image: temporalio/temporal:latest
+    command:
+      - server
+      - start-dev
+      - --ip=0.0.0.0
+      - --ui-ip=0.0.0.0
+      - --db-filename=/data/temporal.db
+      - --search-attribute=AnalystStage=Keyword
+      - --search-attribute=AnalystRisk=Keyword
+      - --search-attribute=AnalystRequester=Keyword
+    ports:
+      - "7233:7233"   # gRPC frontend
+      - "8233:8233"   # Web UI
+    volumes:
+      - temporal-data:/data
+    restart: unless-stopped
+
+  phoenix:
+    image: arizephoenix/phoenix:latest
+    ports:
+      - "6006:6006"   # UI + OTLP/HTTP receiver (/v1/traces)
+      - "4317:4317"   # OTLP/gRPC receiver
+    environment:
+      - PHOENIX_WORKING_DIR=/data
+    volumes:
+      - phoenix-data:/data
+    restart: unless-stopped
+
+volumes:
+  temporal-data:
+  phoenix-data:

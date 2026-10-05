@@ -214,6 +214,13 @@ class AnalystWorkflow:
         )
         state.summary, state.usage = summary, state.usage.add(sum_usage)
         self._set_stage(Stage.COMPLETED)
+        workflow.logger.info(
+            "run complete: %d Claude calls, %d in / %d out tokens, est. cost $%.4f",
+            state.usage.calls,
+            state.usage.input_tokens,
+            state.usage.output_tokens,
+            state.usage.cost_usd,
+        )
         return state
 
     # -- helpers ------------------------------------------------------------------------------

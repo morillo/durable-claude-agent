@@ -6,7 +6,7 @@ PY  = $(UV) run
 
 .DEFAULT_GOAL := help
 
-.PHONY: help install lint format typecheck test check secrets-scan seed index mcp smoke-mcp temporal worker ask start approve status demo-crash record-demo eval eval-gold scorecard
+.PHONY: help install lint format typecheck test check secrets-scan seed index mcp smoke-mcp temporal worker ask start approve status demo-crash record-demo eval eval-gold scorecard up down phoenix
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
@@ -60,6 +60,15 @@ smoke-mcp: ## Start the MCP server, exercise all four tools, stop it. One comman
 TEMPORAL_DB ?= data/temporal.sqlite
 # Custom search attributes used by the workflow; they must exist before a run upserts them.
 SEARCH_ATTRS = --search-attribute AnalystStage=Keyword --search-attribute AnalystRisk=Keyword --search-attribute AnalystRequester=Keyword
+
+up: ## Start Temporal + Phoenix with docker compose (alternative to `make temporal`; UI 8233, Phoenix 6006)
+	docker compose up -d
+
+phoenix: ## Start only Phoenix (use with the brew-installed `make temporal`)
+	docker compose up -d phoenix
+
+down: ## Stop the compose services
+	docker compose down
 
 temporal: ## Run the Temporal dev server (UI on http://localhost:8233), state persisted in data/temporal.sqlite
 	temporal server start-dev --db-filename $(TEMPORAL_DB) $(SEARCH_ATTRS)
