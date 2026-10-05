@@ -5,7 +5,7 @@ so every step gets retries, timeouts, a human-approval gate before risky queries
 recovery. Ships with an evaluation harness that scores SQL correctness, tool use, and
 retrieval quality.
 
-> **Status: M3 complete.** Milestones:
+> **Status: M4 complete (minimum viable demo).** Milestones:
 >
 > | # | Milestone | State |
 > |---|-----------|-------|
@@ -13,7 +13,7 @@ retrieval quality.
 > | M1 | Seed data (Delta Lake via delta-rs) + DuckDB + deterministic `risk.py` | ✅ |
 > | M2 | MCP server (4 tools) + LanceDB retrieval over `governance/` | ✅ |
 > | M3 | Temporal workflow, approval signal, CLI | ✅ |
-> | M4 | Crash-recovery demo + recording | ⏳ |
+> | M4 | Crash-recovery demo + recording | ✅ |
 > | M5 | Eval harness + baseline scorecard | ⏳ |
 > | M6 | Observability (OTel → Phoenix), docs, CI evals | ⏳ |
 
@@ -104,3 +104,53 @@ Observed on the three demo questions:
 | net revenue by country in 2025, top 5 | `safe` | executed; net-revenue definition and cancelled-order exclusion applied | $0.030 |
 | email addresses of enterprise customers in Germany | `needs_approval` (R4 PII) | paused; approved via `make approve`; executed | $0.018 |
 | card tokens for customer 42 | `blocked` (restricted table) | model declined to write SQL; classifier blocked independently; never executed | $0.004 |
+
+## Crash recovery (M4): the demo moment
+
+```bash
+make demo-crash     # needs `make temporal` and `make mcp` running; no `make worker`
+```
+
+![crash recovery demo](docs/demo/crash-recovery.gif)
+
+The demo starts a worker with `DEMO_CRASH_AT=generate_sql`, asks a question that needs
+approval, and the worker **SIGKILLs itself** right after Claude's first tool call. With no
+worker alive, the Temporal server still holds the run: the stage search attribute says
+`generating`, the pending activity is `generate_sql` attempt 1, and its heartbeat details
+contain the checkpoint (one tool call, three conversation messages). A fresh worker starts,
+the server times the dead attempt out on the heartbeat timeout, retries on the new worker, and
+the activity resumes from the checkpoint. The run then pauses for approval and completes.
+
+Evidence printed from the workflow history after the run:
+
+```
+retrieve_context   scheduled 1x  attempt=1
+plan_query         scheduled 1x  attempt=1
+generate_sql       scheduled 1x  attempt=2  previous attempt failed: activity Heartbeat timeout
+classify_risk      scheduled 1x  attempt=1
+execute_sql        scheduled 1x  attempt=1
+summarize          scheduled 1x  attempt=1
+resumed_from_checkpoint = True
+Claude calls            = 5 real API calls across both attempts
+```
+
+Five calls is the proof: plan (1) + three `generate_sql` turns + summary (1). The turn that ran
+before the crash is counted once because the retry resumed after it instead of repeating it.
+The demo runs with the response cache disabled so none of those calls were served locally.
+
+### What Temporal guarantees, and what is on me
+
+| Guarantee | Who provides it |
+|---|---|
+| A completed activity is never re-executed; its result is replayed from history. | **Temporal.** `retrieve_context` and `plan_query` ran once. |
+| A crashed worker does not lose the run. Any worker on the task queue can continue it. | **Temporal.** The run survived with zero workers for several seconds. |
+| A stalled activity is detected and retried, with backoff and a cap. | **Temporal**, via `heartbeat_timeout` and `RetryPolicy`. |
+| The approval gate survives restarts and waits hours without a process holding it. | **Temporal.** `wait_condition` on a signal, timer-backed. |
+| An interrupted activity resumes mid-way instead of from scratch. | **Me.** `generate_sql` checkpoints its conversation into heartbeat details after every tool round and reads them back on retry. Temporal stores the details; it does not know what they mean. |
+| Re-running an activity does not duplicate side effects. | **Me.** All SQL is read-only; LLM calls are cached by request hash so a true re-run costs nothing; `execute_sql` is bounded and idempotent. |
+| The checkpoint reaches the server before the crash. | **Me.** Heartbeats are flushed on the event loop; the crash hook yields (`await asyncio.sleep`) before killing the process. A blocking sleep here silently loses the checkpoint, which is exactly the bug the first demo run exposed. |
+
+Two honest limits. First, the heartbeat timeout is the recovery latency floor: with a 10 s
+timeout the retry started about 7 s after the new worker came up. Second, if a worker dies
+between a Claude response and the next heartbeat, that one turn is repeated on retry. The
+response cache then serves it for free, but it is still a second request.

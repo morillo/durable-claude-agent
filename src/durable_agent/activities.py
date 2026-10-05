@@ -18,6 +18,7 @@ tool call on the first attempt, to demonstrate recovery. It is inert unless the 
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
@@ -240,13 +241,13 @@ class AnalystActivities:
                 # Checkpoint: a retry resumes here instead of replaying earlier turns.
                 activity.heartbeat(
                     {
-                        "messages": messages,
-                        "tool_calls": tool_calls,
+                        "messages": list(messages),  # snapshot; the list keeps growing
+                        "tool_calls": list(tool_calls),
                         "usage": usage.model_dump(),
                         "validated": validated,
                     }
                 )
-                self._maybe_crash("generate_sql", info.attempt, len(tool_calls))
+                await self._maybe_crash("generate_sql", info.attempt, len(tool_calls))
 
         if final is None:
             raise RuntimeError(f"generate_sql did not finish within {MAX_TOOL_ROUNDS} tool rounds")
@@ -321,8 +322,13 @@ class AnalystActivities:
 
     # -- helpers ------------------------------------------------------------------------------
 
-    def _maybe_crash(self, stage: str, attempt: int, tool_calls_so_far: int) -> None:
-        """Crash-recovery demo hook. SIGKILL is deliberate: no cleanup, like a real OOM kill."""
+    async def _maybe_crash(self, stage: str, attempt: int, tool_calls_so_far: int) -> None:
+        """Crash-recovery demo hook. SIGKILL is deliberate: no cleanup, like a real OOM kill.
+
+        The sleep is ``await``-ed on purpose: the SDK encodes and sends the heartbeat on the
+        event loop, so the loop must get a turn before the process dies or the checkpoint
+        never leaves the worker.
+        """
         if self.settings.demo_crash_at == stage and attempt == 1 and tool_calls_so_far >= 1:
             log.warning(
                 "DEMO_CRASH_AT=%s: killing worker pid %d after %d tool call(s)",
@@ -330,9 +336,7 @@ class AnalystActivities:
                 os.getpid(),
                 tool_calls_so_far,
             )
-            import time
-
-            time.sleep(1.5)  # let the heartbeat flush to the server before dying
+            await asyncio.sleep(1.5)  # let the heartbeat flush to the server before dying
             os.kill(os.getpid(), signal.SIGKILL)
 
 

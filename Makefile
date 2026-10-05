@@ -6,7 +6,7 @@ PY  = $(UV) run
 
 .DEFAULT_GOAL := help
 
-.PHONY: help install lint format typecheck test check secrets-scan seed index mcp smoke-mcp temporal worker ask start approve status
+.PHONY: help install lint format typecheck test check secrets-scan seed index mcp smoke-mcp temporal worker ask start approve status demo-crash record-demo
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
@@ -87,3 +87,12 @@ approve: ## Decide a run awaiting approval:  make approve RUN_ID=analyst-abc123 
 status: ## Show the live state of a run:  make status RUN_ID=analyst-abc123
 	@test -n "$(RUN_ID)" || (echo 'usage: make status RUN_ID=...'; exit 1)
 	$(PY) durable-agent status $(RUN_ID)
+
+# ---------------------------------------------------------------------------
+# Crash-recovery demo
+# ---------------------------------------------------------------------------
+demo-crash: ## Kill the worker mid-generate_sql, restart it, show the run resume from its checkpoint (~$0.03)
+	$(PY) python -m durable_agent.demo_crash
+
+record-demo: ## Record make demo-crash to docs/demo/crash-recovery.gif with vhs (brew install vhs)
+	vhs docs/demo/crash-recovery.tape

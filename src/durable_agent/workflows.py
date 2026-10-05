@@ -141,7 +141,7 @@ class AnalystWorkflow:
             args=[request, context, plan],
             result_type=GeneratedSQL,
             start_to_close_timeout=timedelta(minutes=5),
-            heartbeat_timeout=timedelta(seconds=20),
+            heartbeat_timeout=timedelta(seconds=10),
             retry_policy=LLM_RETRY,
         )
         state.sql, state.explanation = gen.sql, gen.explanation
