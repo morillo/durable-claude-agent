@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      run_evals:
+        description: "Run the eval harness (spends Anthropic tokens)"
+        type: boolean
+        default: false
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: lint · typecheck · test · secrets
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Install
+        run: uv sync --all-groups
+
+      - name: Ruff
+        run: |
+          uv run ruff check .
+          uv run ruff format --check .
+
+      - name: mypy
+        run: uv run mypy
+
+      - name: Tests
+        run: uv run pytest
+
+      - name: Secrets scan
+        run: uv run detect-secrets scan --baseline .secrets.baseline
+
+  # Added in M5: a manual-dispatch job that runs `make eval` with ANTHROPIC_API_KEY
+  # from repository secrets and uploads evals/results/ as an artifact.

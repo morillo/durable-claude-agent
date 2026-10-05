@@ -1,0 +1,78 @@
+[project]
+name = "durable-agent"
+version = "0.1.0"
+description = "A Claude-powered text-to-SQL analyst over a governed lakehouse, run as a Temporal workflow with human approval, crash recovery, and an evaluation harness."
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "Carlos Morillo", email = "carlos.morillo@gmail.com" }]
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "pydantic>=2.11,<3",
+    "pydantic-settings>=2.10,<3",
+]
+
+[project.scripts]
+durable-agent = "durable_agent.cli:main"
+
+[dependency-groups]
+dev = [
+    "ruff>=0.14",
+    "mypy>=1.18",
+    "pytest>=8.4",
+    "pytest-asyncio>=1.2",
+    "detect-secrets>=1.5",
+    "pre-commit>=4.3",
+]
+
+[build-system]
+requires = ["uv_build>=0.12.22,<0.13.0"]
+build-backend = "uv_build"
+
+# ---------------------------------------------------------------------------
+# Tooling
+# ---------------------------------------------------------------------------
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+src = ["src", "tests", "evals"]
+
+[tool.ruff.lint]
+select = [
+    "E", "F", "W",   # pycodestyle + pyflakes
+    "I",             # isort
+    "UP",            # pyupgrade
+    "B",             # bugbear
+    "SIM",           # simplify
+    "N",             # naming
+    "RUF",           # ruff-specific
+    "ASYNC",         # async pitfalls (relevant for Temporal workflows)
+    "S",             # bandit security checks
+]
+ignore = [
+    "S101",  # assert is fine in tests and in invariants
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S105", "S106", "S108"]  # fake tokens and tmp paths in tests
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_unreachable = true
+pretty = true
+mypy_path = "src"
+packages = ["durable_agent"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+addopts = "-ra -q"
+markers = [
+    "llm: tests that call the Anthropic API (cost tokens; skipped unless RUN_LLM_TESTS=1)",
+    "temporal: tests that start a Temporal dev server",
+]
