@@ -6,7 +6,7 @@ PY  = $(UV) run
 
 .DEFAULT_GOAL := help
 
-.PHONY: help install lint format typecheck test check secrets-scan seed index mcp smoke-mcp temporal worker ask start approve status demo-crash record-demo eval eval-gold
+.PHONY: help install lint format typecheck test check secrets-scan seed index mcp smoke-mcp temporal worker ask start approve status demo-crash record-demo eval eval-gold scorecard
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
@@ -107,3 +107,8 @@ eval: ## Run the eval dataset through the real workflow; writes evals/results/<t
 
 eval-gold: ## Recompute gold result hashes in evals/dataset.jsonl after changing seed data or gold SQL
 	$(PY) python -m evals.runner --write-gold
+
+scorecard: ## Print the scorecard of the most recent eval run
+	@latest=$$(ls -d evals/results/*/ 2>/dev/null | sort | tail -1); \
+	if [ -z "$$latest" ]; then echo "no eval runs yet: run make eval"; exit 1; fi; \
+	echo "$$latest"; cat "$$latest/scorecard.md"
