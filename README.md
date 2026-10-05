@@ -24,7 +24,7 @@ make install      # uv sync + pre-commit hooks
 make check        # ruff, mypy --strict, pytest, detect-secrets
 make seed         # ~11k rows of synthetic retail data as Delta tables in data/lakehouse/
 make index        # LanceDB index over governance/*.md (downloads MiniLM once, ~90 MB)
-make mcp          # MCP tool server on http://127.0.0.1:8765/mcp
+make smoke-mcp    # start the MCP server, call every tool, stop it (one command)
 ```
 
 ## The governed lakehouse (M1)
