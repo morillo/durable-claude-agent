@@ -9,9 +9,13 @@ requires-python = ">=3.12,<3.13"
 dependencies = [
     "deltalake>=1.6,<2",
     "duckdb>=1.5,<2",
+    "httpx>=0.28",
+    "lancedb>=0.39,<1",
+    "mcp>=2.3,<3",
     "pyarrow>=21",
     "pydantic>=2.11,<3",
     "pydantic-settings>=2.10,<3",
+    "sentence-transformers>=6,<7",
     "sqlglot>=28,<31",
 ]
 

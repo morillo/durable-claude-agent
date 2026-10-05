@@ -72,6 +72,10 @@ class Settings(BaseSettings):
         description="Folder holding data_dictionary.md and policies.md (the retrieval corpus "
         "and the machine-readable policy block).",
     )
+    embedding_model: str = Field(
+        default="sentence-transformers/all-MiniLM-L6-v2",
+        description="Local sentence-transformers model for governance retrieval (zero tokens).",
+    )
     max_rows: int = Field(default=1000, ge=1, le=100_000)
     query_timeout_seconds: int = Field(default=30, ge=1, le=600)
 
