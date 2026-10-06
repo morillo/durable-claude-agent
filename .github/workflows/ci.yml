@@ -11,6 +11,10 @@ on:
         type: boolean
         default: false
 
+# Least privilege for the automatic GITHUB_TOKEN: nothing here writes to the repo.
+permissions:
+  contents: read
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -19,6 +23,7 @@ jobs:
   checks:
     name: lint · typecheck · test · secrets
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
 
@@ -43,14 +48,18 @@ jobs:
       - name: Secrets scan
         run: uv run detect-secrets scan --baseline .secrets.baseline
 
+  # Manual only: the secret is never available to pull_request runs. The Temporal dev server is
+  # downloaded by the SDK itself (pinned, checksummed) rather than via a curl | sh install.
   evals:
     name: eval harness (manual)
     if: github.event_name == 'workflow_dispatch' && inputs.run_evals
     runs-on: ubuntu-latest
     needs: checks
+    timeout-minutes: 30
     env:
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-      RUN_SQL_CAPABILITY_TOKEN: ci-eval-token
+      RUN_SQL_CAPABILITY_TOKEN: ci-eval-token   # ephemeral in-process MCP server; not a secret
+      LLM_CACHE: "false"                        # cold run: real cost and real behaviour
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
@@ -62,10 +71,6 @@ jobs:
         run: |
           uv run python -m durable_agent.seed --out data/lakehouse
           uv run python -m durable_agent.retrieval.index --governance governance --out data/index
-      - name: Install Temporal CLI
-        run: |
-          curl -sSf https://temporal.download/cli.sh | sh
-          echo "$HOME/.temporalio/bin" >> "$GITHUB_PATH"
       - name: Run evals
         run: uv run python -m evals.runner --concurrency 4
       - uses: actions/upload-artifact@v4
