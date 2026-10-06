@@ -1,5 +1,7 @@
 # durable-claude-agent
 
+[![CI](https://github.com/morillo/durable-claude-agent/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/morillo/durable-claude-agent/actions/workflows/ci.yml)
+
 **A Claude text-to-SQL analyst over a governed lakehouse, run as a Temporal workflow.**
 Every step gets retries, timeouts, and crash recovery; risky queries stop at a human-approval
 gate; a deterministic policy engine, not the model, decides what is risky; and an evaluation
