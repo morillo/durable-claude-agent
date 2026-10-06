@@ -33,6 +33,8 @@ table even with the token.
 
 ## 2. Start the services (1 min)
 
+Full details on starting, stopping, and checking services: [`RUNBOOK.md`](RUNBOOK.md).
+
 Terminal 1: `make temporal` (or `make up` for Temporal + Phoenix via Docker)
 Terminal 2: `make mcp`
 Terminal 3: `make worker`
