@@ -301,6 +301,17 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Recompute gold_rows_hash in the dataset and exit.",
     )
+    parser.add_argument(
+        "--min-execution",
+        type=float,
+        default=0.0,
+        help="Exit 1 if execution accuracy is below this (CI gate, e.g. 0.9).",
+    )
+    parser.add_argument(
+        "--allow-workflow-failures",
+        action="store_true",
+        help="Do not exit 1 when some workflows failed (default: any failure fails the run).",
+    )
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s", datefmt="%H:%M:%S")
     for noisy in ("httpx2", "httpx", "temporalio", "mcp", "sentence_transformers", "uvicorn"):
