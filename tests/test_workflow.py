@@ -34,7 +34,7 @@ from durable_agent.models import (
     Stage,
     Summary,
 )
-from durable_agent.workflows import SEARCH_ATTRIBUTES, STAGE_KEY, AnalystWorkflow
+from durable_agent.workflows import SEARCH_ATTRIBUTES, STAGE_KEY, AnalystWorkflow, workflow_runner
 
 pytestmark = pytest.mark.temporal
 
@@ -186,7 +186,13 @@ async def _run_workflow(
     *,
     signal: ApprovalDecision | None = None,
 ) -> tuple[AnalystResult, list[str]]:
-    async with Worker(client, task_queue=TQ, workflows=[AnalystWorkflow], activities=acts.all):
+    async with Worker(
+        client,
+        task_queue=TQ,
+        workflows=[AnalystWorkflow],
+        activities=acts.all,
+        workflow_runner=workflow_runner(),
+    ):
         handle = await client.start_workflow(
             AnalystWorkflow.run, request, id=f"t-{uuid.uuid4().hex[:8]}", task_queue=TQ
         )
@@ -310,7 +316,11 @@ def test_signal_is_idempotent_first_decision_wins(env_and_client: Any) -> None:
 
     async def go() -> AnalystResult:
         async with Worker(
-            env.client, task_queue=TQ, workflows=[AnalystWorkflow], activities=acts.all
+            env.client,
+            task_queue=TQ,
+            workflows=[AnalystWorkflow],
+            activities=acts.all,
+            workflow_runner=workflow_runner(),
         ):
             handle = await env.client.start_workflow(
                 AnalystWorkflow.run,
@@ -343,7 +353,11 @@ def test_unrecoverable_activity_error_fails_workflow_with_reason(env_and_client:
 
     async def go() -> None:
         async with Worker(
-            env.client, task_queue=TQ, workflows=[AnalystWorkflow], activities=acts.all
+            env.client,
+            task_queue=TQ,
+            workflows=[AnalystWorkflow],
+            activities=acts.all,
+            workflow_runner=workflow_runner(),
         ):
             handle = await env.client.start_workflow(
                 AnalystWorkflow.run,

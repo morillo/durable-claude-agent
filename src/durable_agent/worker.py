@@ -16,7 +16,7 @@ from temporalio.worker import Worker
 from durable_agent.activities import AnalystActivities
 from durable_agent.config import Settings, get_settings
 from durable_agent.observability import setup_tracing, shutdown_tracing
-from durable_agent.workflows import AnalystWorkflow
+from durable_agent.workflows import AnalystWorkflow, workflow_runner
 
 log = logging.getLogger("durable_agent.worker")
 
@@ -50,6 +50,7 @@ async def run_worker(settings: Settings) -> None:
         task_queue=settings.temporal_task_queue,
         workflows=[AnalystWorkflow],
         activities=acts.all,
+        workflow_runner=workflow_runner(),
         # Flush heartbeats promptly so a checkpoint is on the server before a crash.
         default_heartbeat_throttle_interval=timedelta(seconds=1),
         max_heartbeat_throttle_interval=timedelta(seconds=2),

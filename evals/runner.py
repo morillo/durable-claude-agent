@@ -38,7 +38,7 @@ from durable_agent.mcp_server.server import AppState, create_server
 from durable_agent.models import AnalystRequest, AnalystResult, ApprovalDecision, LLMUsage, Stage
 from durable_agent.retrieval import GovernanceIndex, SentenceTransformerEmbedder
 from durable_agent.risk import load_policy
-from durable_agent.workflows import SEARCH_ATTRIBUTES, STAGE_KEY, AnalystWorkflow
+from durable_agent.workflows import SEARCH_ATTRIBUTES, STAGE_KEY, AnalystWorkflow, workflow_runner
 from evals.dataset import (
     DATASET_PATH,
     Example,
@@ -193,6 +193,7 @@ async def run_eval(
             task_queue=TASK_QUEUE,
             workflows=[AnalystWorkflow],
             activities=acts.all,
+            workflow_runner=workflow_runner(),
             default_heartbeat_throttle_interval=dt.timedelta(seconds=1),
             max_heartbeat_throttle_interval=dt.timedelta(seconds=2),
         ):
@@ -327,6 +328,15 @@ def main(argv: list[str] | None = None) -> int:
         f"judge={m['tool_use_judge']} approval={m['approval_behavior']} total=${card['cost']['total_usd']}"
     )
     print(f"scorecard: {card['out_dir']}/scorecard.md")
+    healthy = m["completed_without_workflow_failure"] == 1.0
+    if not healthy and not args.allow_workflow_failures:
+        print("FAIL: at least one workflow failed (orchestration health < 100%)")
+        return 1
+    if (m["execution_accuracy"] or 0.0) < args.min_execution:
+        print(
+            f"FAIL: execution accuracy {m['execution_accuracy']} below --min-execution {args.min_execution}"
+        )
+        return 1
     return 0
 
 

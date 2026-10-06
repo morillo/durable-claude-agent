@@ -27,6 +27,8 @@ from datetime import timedelta
 from temporalio import workflow
 from temporalio.common import RetryPolicy, SearchAttributeKey
 from temporalio.exceptions import ActivityError, ApplicationError
+from temporalio.worker import SandboxedWorkflowRunner
+from temporalio.worker.workflow_sandbox import SandboxRestrictions
 
 with workflow.unsafe.imports_passed_through():
     from durable_agent.models import (
@@ -50,6 +52,21 @@ REQUESTER_KEY = SearchAttributeKey.for_keyword("AnalystRequester")
 SEARCH_ATTRIBUTES = (STAGE_KEY, RISK_KEY, REQUESTER_KEY)
 
 TASK_QUEUE_DEFAULT = "analyst"
+
+
+def workflow_runner() -> SandboxedWorkflowRunner:
+    """Sandbox with deterministic third-party modules passed through.
+
+    Re-importing pydantic inside the sandbox on every workflow task is slow enough on a cold CI
+    runner to trip Temporal's 2 s deadlock detector. Passing deterministic modules through is the
+    SDK's recommended configuration.
+    """
+    return SandboxedWorkflowRunner(
+        restrictions=SandboxRestrictions.default.with_passthrough_modules(
+            "pydantic", "pydantic_core", "durable_agent.models"
+        )
+    )
+
 
 # Retry policies: LLM/tool calls get a few attempts with backoff; deterministic steps need one.
 LLM_RETRY = RetryPolicy(
