@@ -6,7 +6,7 @@ PY  = $(UV) run
 
 .DEFAULT_GOAL := help
 
-.PHONY: help install lint format typecheck test check secrets-scan seed index mcp smoke-mcp temporal worker ask start approve status demo-crash record-demo eval eval-gold scorecard up down phoenix
+.PHONY: help install lint format typecheck test check secrets-scan seed index mcp smoke-mcp temporal worker ask start approve status demo-crash record-demo eval eval-gold scorecard up down phoenix ps stop
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
@@ -69,6 +69,24 @@ phoenix: ## Start only Phoenix (use with the brew-installed `make temporal`)
 
 down: ## Stop the compose services
 	docker compose down
+
+ps: ## Show which project services are running (Temporal, MCP server, worker, Phoenix) and on which ports
+	@echo "processes:"; \
+	pgrep -fl "temporal server start-dev" | sed 's/^/  temporal server   pid /' || echo "  temporal server   not running (brew)"; \
+	pgrep -fl "python -m durable_agent.mcp_server$$" | sed 's/^/  mcp server        pid /' || echo "  mcp server        not running"; \
+	pgrep -fl "python -m durable_agent.worker$$" | sed 's/^/  worker            pid /' || echo "  worker            not running"; \
+	echo "ports:"; \
+	for p in 7233 8233 8765 6006; do \
+	  lsof -nP -iTCP:$$p -sTCP:LISTEN 2>/dev/null | awk -v p=$$p 'NR==2 {print "  " p "  " $$1 " (pid " $$2 ")"}'; \
+	done; \
+	echo "docker:"; docker compose ps --format "  {{.Service}}  {{.State}}" 2>/dev/null || echo "  (docker not running)"
+
+stop: ## Stop everything this project started: worker, MCP server, Temporal dev server, compose services
+	-pkill -f "python -m durable_agent.worker$$" && echo "stopped worker" || true
+	-pkill -f "python -m durable_agent.mcp_server$$" && echo "stopped mcp server" || true
+	-pkill -f "temporal server start-dev" && echo "stopped temporal dev server" || true
+	-docker compose down 2>/dev/null || true
+	@sleep 1; $(MAKE) --no-print-directory ps
 
 temporal: ## Run the Temporal dev server (UI on http://localhost:8233), state persisted in data/temporal.sqlite
 	temporal server start-dev --db-filename $(TEMPORAL_DB) $(SEARCH_ATTRS)

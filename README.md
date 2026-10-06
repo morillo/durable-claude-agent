@@ -88,7 +88,8 @@ make ask Q="What was net revenue by customer country in 2025? Top 5."    # ~3 ce
 make demo-crash                   # stop the worker first; ~2 cents
 ```
 
-`make help` lists every target. The step-by-step demo script with narration is
+`make help` lists every target. `make ps` shows which services are running and on which ports;
+`make stop` stops all of them. The step-by-step demo script with narration is
 [`docs/DEMO.md`](docs/DEMO.md).
 
 ## What a run looks like
