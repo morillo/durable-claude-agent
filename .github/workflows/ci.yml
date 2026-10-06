@@ -15,9 +15,11 @@ on:
 permissions:
   contents: read
 
+# Pushes supersede older pushes on the same branch; manual eval dispatches never cancel (or get
+# cancelled by) a push run, so the commit's CI status always reflects the code.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}-${{ github.event_name == 'workflow_dispatch' && github.run_id || '' }}
+  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
 
 jobs:
   checks:
