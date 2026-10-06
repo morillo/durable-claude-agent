@@ -27,8 +27,7 @@ from datetime import timedelta
 from temporalio import workflow
 from temporalio.common import RetryPolicy, SearchAttributeKey
 from temporalio.exceptions import ActivityError, ApplicationError
-from temporalio.worker import SandboxedWorkflowRunner
-from temporalio.worker.workflow_sandbox import SandboxRestrictions
+from temporalio.worker.workflow_sandbox import SandboxedWorkflowRunner, SandboxRestrictions
 
 with workflow.unsafe.imports_passed_through():
     from durable_agent.models import (
