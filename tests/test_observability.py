@@ -7,7 +7,7 @@ from opentelemetry import trace
 from opentelemetry.sdk.trace import TracerProvider
 
 from durable_agent import observability
-from durable_agent.config import Settings
+from durable_agent.config import SettingsNoDotenv
 
 
 @pytest.fixture(autouse=True)
@@ -16,14 +16,14 @@ def _reset_provider() -> None:
 
 
 def test_disabled_returns_none_and_tracer_is_noop() -> None:
-    s = Settings(_env_file=None, otel_enabled=False)
+    s = SettingsNoDotenv(otel_enabled=False)
     assert observability.setup_tracing(s, "t") is None
     with observability.tracer("x").start_as_current_span("noop") as span:
         assert not span.is_recording() or isinstance(trace.get_tracer_provider(), TracerProvider)
 
 
 def test_enabled_configures_provider_once() -> None:
-    s = Settings(_env_file=None, otel_enabled=True, phoenix_collector_endpoint="http://127.0.0.1:1")
+    s = SettingsNoDotenv(otel_enabled=True, phoenix_collector_endpoint="http://127.0.0.1:1")
     p1 = observability.setup_tracing(s, "svc")
     p2 = observability.setup_tracing(s, "svc")
     assert isinstance(p1, TracerProvider) and p1 is p2

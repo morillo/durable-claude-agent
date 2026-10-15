@@ -37,6 +37,7 @@ dev = [
     "detect-secrets>=1.5",
     "pre-commit>=4.3",
     "pyarrow-stubs>=20",
+    "pyright>=1.1.414",
 ]
 
 [build-system]

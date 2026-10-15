@@ -34,6 +34,7 @@ from pathlib import Path
 from typing import Any
 
 import sqlglot
+import sqlglot.errors
 from sqlglot import exp
 from sqlglot.optimizer.qualify import qualify
 

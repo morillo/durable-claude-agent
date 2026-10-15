@@ -15,15 +15,17 @@ import threading
 import time
 from collections.abc import Iterator
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
+import anthropic
 import pytest
 import uvicorn
 from anthropic.types.beta import BetaMessage
+from pydantic import SecretStr
 from temporalio.testing import ActivityEnvironment
 
 from durable_agent.activities import AnalystActivities
-from durable_agent.config import Settings
+from durable_agent.config import Settings, SettingsNoDotenv
 from durable_agent.llm import LLM
 from durable_agent.mcp_server import create_server
 from durable_agent.mcp_server.server import AppState
@@ -49,7 +51,7 @@ async def test_crash_hook_inert_without_env(monkeypatch: pytest.MonkeyPatch) -> 
     killed: list[tuple[int, int]] = []
     monkeypatch.setattr(os, "kill", lambda pid, sig: killed.append((pid, sig)))
     monkeypatch.setattr("durable_agent.activities.asyncio.sleep", _no_sleep)
-    acts = _acts(Settings(_env_file=None, demo_crash_at=None))
+    acts = _acts(SettingsNoDotenv(demo_crash_at=None))
     await acts._maybe_crash("generate_sql", attempt=1, tool_calls_so_far=3)
     assert killed == []
 
@@ -60,7 +62,7 @@ async def test_crash_hook_fires_once_on_first_attempt_after_first_tool_call(
     killed: list[tuple[int, int]] = []
     monkeypatch.setattr(os, "kill", lambda pid, sig: killed.append((pid, sig)))
     monkeypatch.setattr("durable_agent.activities.asyncio.sleep", _no_sleep)
-    acts = _acts(Settings(_env_file=None, demo_crash_at="generate_sql"))
+    acts = _acts(SettingsNoDotenv(demo_crash_at="generate_sql"))
     await acts._maybe_crash("generate_sql", attempt=1, tool_calls_so_far=0)  # no tool call yet
     await acts._maybe_crash("plan_query", attempt=1, tool_calls_so_far=1)  # wrong stage
     await acts._maybe_crash("generate_sql", attempt=2, tool_calls_so_far=1)  # retry: never again
@@ -88,15 +90,14 @@ def stack(
     embedder = HashEmbedder()
     build_index(GOVERNANCE_DIR, index_path, embedder)
     port = _free_port()
-    settings = Settings(
-        _env_file=None,
+    settings = SettingsNoDotenv(
         lakehouse_path=lakehouse_path,
         index_path=index_path,
         governance_path=GOVERNANCE_DIR,
-        run_sql_capability_token="t",
+        run_sql_capability_token=SecretStr("t"),
         mcp_server_url=f"http://127.0.0.1:{port}/mcp",
         llm_cache=False,
-        anthropic_api_key="sk-ant-fake",  # pragma: allowlist secret
+        anthropic_api_key=SecretStr("sk-ant-fake"),  # pragma: allowlist secret
     )
     state = AppState.from_settings(settings, embedder=embedder)
     app = create_server(state).streamable_http_app(streamable_http_path="/mcp")
@@ -178,7 +179,8 @@ async def test_generate_sql_fresh_run_makes_two_claude_calls(
     claude = ScriptedClaude()
     acts = AnalystActivities(
         settings=settings,
-        llm=LLM(settings, client=claude),
+        # ScriptedClaude is a structural stand-in for the SDK client (same .beta.messages API).
+        llm=LLM(settings, client=cast(anthropic.AsyncAnthropic, claude)),
         lakehouse=state.lakehouse,
         policy=state.policy,
         index=state.index,  # type: ignore[arg-type]
@@ -202,7 +204,8 @@ async def test_generate_sql_resumes_from_checkpoint_without_replaying(
     first = ScriptedClaude()
     acts = AnalystActivities(
         settings=settings,
-        llm=LLM(settings, client=first),
+        # ScriptedClaude is a structural stand-in for the SDK client (same .beta.messages API).
+        llm=LLM(settings, client=cast(anthropic.AsyncAnthropic, first)),
         lakehouse=state.lakehouse,
         policy=state.policy,
         index=state.index,  # type: ignore[arg-type]

@@ -10,8 +10,9 @@ from pathlib import Path
 import pytest
 import uvicorn
 from mcp.client import Client
+from pydantic import SecretStr
 
-from durable_agent.config import Settings
+from durable_agent.config import SettingsNoDotenv
 from durable_agent.mcp_server import MODEL_TOOLS, ToolClient, create_server, tool_client
 from durable_agent.mcp_server.client import ToolCallError
 from durable_agent.mcp_server.server import AppState
@@ -26,12 +27,11 @@ def state(tmp_path_factory: pytest.TempPathFactory, lakehouse_path: Path) -> App
     index_path = tmp_path_factory.mktemp("index")
     embedder = HashEmbedder()
     build_index(GOVERNANCE_DIR, index_path, embedder)
-    settings = Settings(
-        _env_file=None,
+    settings = SettingsNoDotenv(
         lakehouse_path=lakehouse_path,
         index_path=index_path,
         governance_path=GOVERNANCE_DIR,
-        run_sql_capability_token=TOKEN,
+        run_sql_capability_token=SecretStr(TOKEN),
         max_rows=50,
         query_timeout_seconds=5,
     )
