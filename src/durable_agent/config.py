@@ -101,6 +101,17 @@ class Settings(BaseSettings):
     )
 
 
+class SettingsNoDotenv(Settings):
+    """``Settings`` that ignores any ``.env`` file: process environment + explicit values only.
+
+    Tests use this for hermetic configuration. It is the typed equivalent of
+    ``Settings(_env_file=None)``, whose ``_env_file`` init kwarg pydantic-settings
+    accepts at runtime but hides from type checkers.
+    """
+
+    model_config = SettingsConfigDict(env_file=None)
+
+
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
     """Return the process-wide settings singleton.

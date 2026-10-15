@@ -44,6 +44,9 @@ jobs:
       - name: mypy
         run: uv run mypy
 
+      - name: Pyright (same checks as VS Code Pylance)
+        run: uv run pyright
+
       - name: Tests
         run: uv run pytest
 
