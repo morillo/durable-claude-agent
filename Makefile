@@ -61,8 +61,8 @@ TEMPORAL_DB ?= data/temporal.sqlite
 # Custom search attributes used by the workflow; they must exist before a run upserts them.
 SEARCH_ATTRS = --search-attribute AnalystStage=Keyword --search-attribute AnalystRisk=Keyword --search-attribute AnalystRequester=Keyword
 
-up: ## Start Temporal + Phoenix with docker compose (alternative to `make temporal`; UI 8233, Phoenix 6006)
-	docker compose up -d
+up: ## Start Temporal + Phoenix with docker compose and wait until healthy (alternative to `make temporal`; UI 8233, Phoenix 6006)
+	docker compose up -d --wait --wait-timeout 90
 
 phoenix: ## Start only Phoenix (use with the brew-installed `make temporal`)
 	docker compose up -d phoenix

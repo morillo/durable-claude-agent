@@ -40,7 +40,8 @@ Each service blocks its terminal and logs there: one terminal per service.
 | 4 | `make ask Q="..."` | a question | finishes on its own |
 
 Alternative for terminal 1: `make up` starts Temporal **and** Phoenix in Docker and returns
-immediately; `make down` stops them. Do not combine `make temporal` with `make up`: both want
+once Temporal passes its health check (it fails after 90 s if Temporal never comes up; see
+`docker compose logs temporal`); `make down` stops them. Do not combine `make temporal` with `make up`: both want
 port 7233. Phoenix alone: `make phoenix`.
 
 Prerequisites for the Temporal CLI route: `brew install temporal`. For the Docker route: Docker
@@ -79,7 +80,8 @@ kill <pid>
 
 | Data | Location | Reset with |
 |---|---|---|
-| Temporal runs and history | `data/temporal.sqlite` | delete the file (while Temporal is stopped) |
+| Temporal runs and history (`make temporal`) | `data/temporal.sqlite` | delete the file (while Temporal is stopped) |
+| Temporal runs and history (`make up`) | Docker volume `temporal-data` | `docker compose down -v` (also clears Phoenix) |
 | LLM response cache | `data/llm_cache.sqlite` | delete the file, or set `LLM_CACHE=false` |
 | Seeded lakehouse | `data/lakehouse/` | `make seed` (deterministic; same data every time) |
 | Retrieval index | `data/index/` | `make index` |
@@ -100,6 +102,9 @@ what a run did.
 | Symptom | Cause and fix |
 |---|---|
 | `Temporal is not reachable at localhost:7233` | start `make temporal` or `make up` |
+| `make worker` fails with `Connection refused` on `127.0.0.1:7233` although `make up` succeeded | the Temporal container is crash-looping: `docker compose ps` shows `Restarting`. Read `docker compose logs temporal` |
+| `unable to create SQLite admin DB: unable to open database file (14)` in `docker compose logs temporal` | the `temporal-data` volume is owned by root while Temporal runs as uid 1000. `make up` fixes this with its `temporal-init` step; on an older checkout, pull and run `docker compose down && make up` |
+| `nc -z localhost 7233` succeeds but nothing connects | Docker Desktop's port proxy accepts connections even when the container is down; check `docker compose ps` instead |
 | `MCP server is not reachable` | start `make mcp` |
 | `make ask` prints `stage: retrieving` and never advances | no worker is running: start `make worker` |
 | `run_sql requires the run_sql capability` in a worker log | `RUN_SQL_CAPABILITY_TOKEN` differs between the worker's and the MCP server's environment, or is unset |
