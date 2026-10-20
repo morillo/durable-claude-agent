@@ -72,8 +72,9 @@ one-paragraph ADR in [`docs/adr/`](docs/adr/README.md).
 
 ## Quickstart
 
-Prerequisites: Python 3.12, [uv](https://docs.astral.sh/uv/), Docker (for Phoenix) or
-`brew install temporal`, an Anthropic API key.
+Prerequisites: Python 3.12, [uv](https://docs.astral.sh/uv/), Docker Desktop running (`make up`
+starts Temporal and Phoenix in Docker), an Anthropic API key. Without Docker, `brew install
+temporal` and run `make temporal` instead of `make up` (no Phoenix traces then).
 
 ```bash
 git clone https://github.com/morillo/durable-claude-agent && cd durable-claude-agent
@@ -81,12 +82,17 @@ make install                      # uv sync + pre-commit hooks
 cp .env.example .env              # set ANTHROPIC_API_KEY and RUN_SQL_CAPABILITY_TOKEN
 make seed && make index           # Delta tables + LanceDB index, zero tokens
 make check                        # ruff · mypy --strict · 135 tests · secrets scan
-make up                           # Temporal (UI :8233) + Phoenix (:6006) via docker compose
+make up                           # Temporal (UI :8233) + Phoenix (:6006); waits until healthy
 make mcp                          # terminal 2: MCP tool server
 make worker                       # terminal 3: Temporal worker
 make ask Q="What was net revenue by customer country in 2025? Top 5."    # ~3 cents
 make demo-crash                   # stop the worker first; ~2 cents
 ```
+
+Not sure your machine is set up right? `make quickstart-smoke` runs the steps above from fresh
+Docker volumes and stops at the first one that fails (zero tokens; `FULL=1` adds `make ask` and
+`make demo-crash` for about 5 cents; `ROUTE=brew` tests `make temporal` instead of `make up`).
+Run `make stop` first; it uses the same ports. CI runs it on every pull request and push.
 
 `make help` lists every target. `make ps` shows which services are running and on which ports;
 `make stop` stops all of them. Starting, stopping, ports, configuration, and common symptoms are

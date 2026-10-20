@@ -10,6 +10,10 @@ on:
         description: "Run the eval harness (spends Anthropic tokens)"
         type: boolean
         default: false
+      run_quickstart_full:
+        description: "Quickstart smoke also runs make ask + make demo-crash (~5 cents)"
+        type: boolean
+        default: false
 
 # Least privilege for the automatic GITHUB_TOKEN: nothing here writes to the repo.
 permissions:
@@ -51,7 +55,34 @@ jobs:
         run: uv run pytest
 
       - name: Secrets scan
-        run: uv run detect-secrets scan --baseline .secrets.baseline
+        run: make secrets-scan
+
+  # Runs the README Quickstart literally on a clean runner with fresh Docker volumes: seed, index,
+  # make up, make mcp, make worker, and checks the worker is polling Temporal. Zero tokens unless
+  # dispatched manually with run_quickstart_full, which adds make ask and make demo-crash.
+  quickstart:
+    name: README quickstart smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: make install
+        run: make install
+
+      - name: make quickstart-smoke
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.run_quickstart_full) }}
+        run: make quickstart-smoke
+
+      - name: make quickstart-smoke FULL=1 (manual only; spends tokens)
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_quickstart_full }}
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: make quickstart-smoke FULL=1
 
   # Manual only: the secret is never available to pull_request runs. The Temporal dev server is
   # downloaded by the SDK itself (pinned, checksummed) rather than via a curl | sh install.
