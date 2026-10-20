@@ -47,6 +47,22 @@ port 7233. Phoenix alone: `make phoenix`.
 Prerequisites for the Temporal CLI route: `brew install temporal`. For the Docker route: Docker
 Desktop running.
 
+## Check that the whole setup works
+
+```bash
+make stop                          # the smoke test needs ports 7233, 8233, 8765, 6006 free
+make quickstart-smoke              # zero tokens
+make quickstart-smoke FULL=1       # also make ask + make demo-crash, about 5 cents
+make quickstart-smoke ROUTE=brew   # Temporal via `make temporal` instead of `make up`
+```
+
+Runs the README Quickstart from fresh Docker volumes (a separate compose project, `dca-smoke`)
+and checks that the worker is polling Temporal. Your own volumes, `data/temporal.sqlite` and
+`.env` are left alone; if `.env` is missing it creates one from `.env.example`. Prints
+`QUICKSTART SMOKE PASSED`, or the failing step plus the last lines of each service log. Service
+logs stay in `data/quickstart-smoke/`. CI runs the docker route on every pull request and push to
+`main`; a manual CI dispatch with `run_quickstart_full` runs `FULL=1`.
+
 ## Which services does each command need?
 
 | Command | Needs running |
@@ -56,6 +72,7 @@ Desktop running.
 | `make ask`, `make start`, `make approve`, `make status` | Temporal, MCP server, worker |
 | `make demo-crash` | Temporal and MCP server only. Stop `make worker` first; the demo starts and kills its own workers |
 | `make record-demo` | same as `demo-crash`, plus `brew install vhs` |
+| `make quickstart-smoke` | nothing, and ports 7233, 8233, 8765, 6006 free: it starts and stops its own services |
 | Phoenix traces | Phoenix (`make phoenix` or `make up`) and `OTEL_ENABLED=true` in `.env` (the default) |
 
 ## Configuration

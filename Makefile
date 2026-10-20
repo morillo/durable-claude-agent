@@ -6,7 +6,7 @@ PY  = $(UV) run
 
 .DEFAULT_GOAL := help
 
-.PHONY: help install lint format typecheck test check secrets-scan seed index mcp smoke-mcp temporal worker ask start approve status demo-crash record-demo eval eval-gold scorecard up down phoenix ps stop
+.PHONY: help install lint format typecheck test check secrets-scan seed index mcp smoke-mcp temporal worker ask start approve status demo-crash record-demo eval eval-gold scorecard up down phoenix ps stop quickstart-smoke
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
@@ -29,8 +29,8 @@ typecheck: ## mypy --strict over src/
 test: ## Unit tests (no API calls, no Temporal server)
 	$(PY) pytest
 
-secrets-scan: ## Scan the tree for committed secrets against the baseline
-	$(PY) detect-secrets scan --baseline .secrets.baseline
+secrets-scan: ## Scan tracked files for secrets against the baseline (read-only: never rewrites .secrets.baseline)
+	git ls-files -z -- ':!uv.lock' ':!.secrets.baseline' | xargs -0 $(PY) detect-secrets-hook --baseline .secrets.baseline
 
 check: lint typecheck test secrets-scan ## Everything CI runs
 
@@ -120,6 +120,11 @@ status: ## Show the live state of a run:  make status RUN_ID=analyst-abc123
 # ---------------------------------------------------------------------------
 demo-crash: ## Kill the worker mid-generate_sql, restart it, show the run resume from its checkpoint (~$0.03)
 	$(PY) python -m durable_agent.demo_crash
+
+FULL ?= 0
+ROUTE ?= docker
+quickstart-smoke: ## Run the README Quickstart from fresh Docker volumes and check every step (zero tokens; FULL=1 adds ask + demo-crash, ~5 cents; ROUTE=brew uses `make temporal`)
+	FULL=$(FULL) ROUTE=$(ROUTE) bash scripts/quickstart-smoke.sh
 
 record-demo: ## Record make demo-crash to docs/demo/crash-recovery.gif with vhs (brew install vhs)
 	vhs docs/demo/crash-recovery.tape

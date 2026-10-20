@@ -34,3 +34,4 @@ evals/results/
 
 # Crash-demo worker logs
 data/demo/
+data/quickstart-smoke/
