@@ -28,6 +28,9 @@ make stop
 Kills the worker, the MCP server, and the Temporal dev server, runs `docker compose down`,
 then prints `make ps` so you can confirm nothing is left. Safe to run when nothing is running.
 
+Both Docker images use the `latest` tag, and Docker keeps whatever version it pulled first. To
+move to the current release: `docker compose pull`, then `make stop` and `make up`.
+
 ## Start
 
 Each service blocks its terminal and logs there: one terminal per service.
@@ -56,8 +59,8 @@ make quickstart-smoke FULL=1       # also make ask + make demo-crash, about 5 ce
 make quickstart-smoke ROUTE=brew   # Temporal via `make temporal` instead of `make up`
 ```
 
-Runs the README Quickstart from fresh Docker volumes (a separate compose project, `dca-smoke`)
-and checks that the worker is polling Temporal. Your own volumes, `data/temporal.sqlite` and
+Runs the README Quickstart from fresh Docker volumes (a separate compose project, `dca-smoke`),
+after pulling the `latest` Temporal and Phoenix images the way a fresh clone would, and checks that the worker is polling Temporal. Your own volumes, `data/temporal.sqlite` and
 `.env` are left alone; if `.env` is missing it creates one from `.env.example`. Prints
 `QUICKSTART SMOKE PASSED`, or the failing step plus the last lines of each service log. Service
 logs stay in `data/quickstart-smoke/`. CI runs the docker route on every pull request and push to
