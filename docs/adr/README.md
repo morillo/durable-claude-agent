@@ -15,3 +15,4 @@ One paragraph each: the decision, the alternatives considered, and why. Newest l
 | [009](009-manual-tool-loop.md) | Manual Messages API tool loop instead of the SDK tool runner |
 | [010](010-evals-through-the-workflow.md) | Evals run the real workflow on a private dev server |
 | [011](011-secrets-scanning.md) | detect-secrets in pre-commit and CI |
+| [012](012-opentelemetry-phoenix.md) | OpenTelemetry with OpenInference instrumentors, exported to Phoenix |

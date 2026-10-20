@@ -6,7 +6,7 @@ PY  = $(UV) run
 
 .DEFAULT_GOAL := help
 
-.PHONY: help install lint format typecheck test check secrets-scan seed index mcp smoke-mcp temporal worker ask start approve status demo-crash record-demo eval eval-gold scorecard up down phoenix ps stop quickstart-smoke screenshots
+.PHONY: help install lint format typecheck test check secrets-scan seed index mcp smoke-mcp temporal worker ask start approve status demo-crash record-demo eval eval-gold scorecard up down phoenix ps stop quickstart-smoke screenshots docs-check
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
@@ -125,6 +125,9 @@ FULL ?= 0
 ROUTE ?= docker
 quickstart-smoke: ## Run the README Quickstart from fresh Docker volumes and check every step (zero tokens; FULL=1 adds ask + demo-crash, ~5 cents; ROUTE=brew uses `make temporal`)
 	FULL=$(FULL) ROUTE=$(ROUTE) bash scripts/quickstart-smoke.sh
+
+docs-check: ## Render every Mermaid diagram in the Markdown docs; fails on any that GitHub could not render (needs Node)
+	$(PY) python scripts/check_mermaid.py
 
 screenshots: ## Capture the Temporal UI screenshots in docs/DEMO.md on a throwaway Temporal (~6 cents; your services keep running)
 	$(PY) python scripts/temporal_screenshots.py
