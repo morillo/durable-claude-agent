@@ -14,6 +14,10 @@ on:
         description: "Quickstart smoke also runs make ask + make demo-crash (~5 cents)"
         type: boolean
         default: false
+      capture_screenshots:
+        description: "Run make screenshots and upload the PNGs (~6 cents)"
+        type: boolean
+        default: false
 
 # Least privilege for the automatic GITHUB_TOKEN: nothing here writes to the repo.
 permissions:
@@ -83,6 +87,37 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: make quickstart-smoke FULL=1
+
+  # Manual only: regenerates docs/DEMO.md's Temporal UI screenshots on a clean runner, proving
+  # `make screenshots` still works end to end; the PNGs are an artifact to review and commit.
+  screenshots:
+    name: Temporal UI screenshots (manual)
+    if: github.event_name == 'workflow_dispatch' && inputs.capture_screenshots
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      RUN_SQL_CAPABILITY_TOKEN: ci-screenshots-token   # ephemeral local MCP server; not a secret
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - name: Install
+        run: |
+          uv sync --all-groups
+          uv run playwright install --with-deps chromium
+      - name: Seed + index
+        run: make seed index
+      - name: make screenshots
+        run: make screenshots
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: temporal-ui-screenshots
+          path: |
+            docs/demo/temporal-*.png
+            data/screenshots/
 
   # Manual only: the secret is never available to pull_request runs. The Temporal dev server is
   # downloaded by the SDK itself (pinned, checksummed) rather than via a curl | sh install.
