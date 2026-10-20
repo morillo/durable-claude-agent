@@ -75,6 +75,7 @@ logs stay in `data/quickstart-smoke/`. CI runs the docker route on every pull re
 | `make ask`, `make start`, `make approve`, `make status` | Temporal, MCP server, worker |
 | `make demo-crash` | Temporal and MCP server only. Stop `make worker` first; the demo starts and kills its own workers |
 | `make record-demo` | same as `demo-crash`, plus `brew install vhs` |
+| `make docs-check` | nothing; Node (`npx`) and Chromium (`uv run playwright install chromium`). Renders every Mermaid diagram in the Markdown docs, as CI does |
 | `make screenshots` | nothing, but a real `ANTHROPIC_API_KEY` in `.env` and Chromium (`uv run playwright install chromium`). It runs its own Temporal (ports 17233/18233, via `TEMPORAL_PORT`/`TEMPORAL_UI_PORT`), MCP server (18765) and worker beside yours, tracing off; ~6 cents |
 | `make quickstart-smoke` | nothing, and ports 7233, 8233, 8765, 6006 free: it starts and stops its own services |
 | Phoenix traces | Phoenix (`make phoenix` or `make up`) and `OTEL_ENABLED=true` in `.env` (the default) |

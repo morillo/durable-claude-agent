@@ -61,6 +61,24 @@ jobs:
       - name: Secrets scan
         run: make secrets-scan
 
+  # GitHub renders Mermaid in the browser and shows only "Unable to render rich display" when a
+  # diagram fails to parse, so render every diagram here and fail the PR instead.
+  docs:
+    name: docs · mermaid diagrams render
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - name: Install
+        run: |
+          uv sync --all-groups
+          uv run playwright install --with-deps chromium
+      - name: make docs-check
+        run: make docs-check
+
   # Runs the README Quickstart literally on a clean runner with fresh Docker volumes: seed, index,
   # make up, make mcp, make worker, and checks the worker is polling Temporal. Zero tokens unless
   # dispatched manually with run_quickstart_full, which adds make ask and make demo-crash.
