@@ -76,7 +76,8 @@ if [ "$ROUTE" = "brew" ]; then
   wait_for 60 "Temporal answering on :7233" temporal operator cluster health --address localhost:7233
   describe_queue() { temporal task-queue describe --task-queue "$QUEUE" --address localhost:7233; }
 else
-  step "make up (fresh volumes)"
+  step "make up (fresh volumes, images pulled first so the test sees what a fresh clone gets)"
+  docker compose pull -q
   make up
   describe_queue() {
     docker compose exec -T temporal temporal task-queue describe --task-queue "$QUEUE" --address localhost:7233

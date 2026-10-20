@@ -9,14 +9,14 @@ services:
   # The Temporal image runs as uid 1000, but a new named volume is owned by root, so SQLite
   # cannot create /data/temporal.db. This one-shot step hands /data to uid 1000 first.
   temporal-init:
-    image: temporalio/temporal:1.9.1
+    image: temporalio/temporal:latest
     user: "0"
     entrypoint: ["chown", "1000:1000", "/data"]
     volumes:
       - temporal-data:/data
 
   temporal:
-    image: temporalio/temporal:1.9.1
+    image: temporalio/temporal:latest
     depends_on:
       temporal-init:
         condition: service_completed_successfully
