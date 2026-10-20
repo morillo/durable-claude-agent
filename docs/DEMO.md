@@ -70,6 +70,12 @@ The audience does not need to know Temporal; three ideas carry the demo:
   a timeline (one bar per activity) and as a list of events; labels vary slightly between UI
   versions.
 
+The screenshots in this script come from Temporal UI 2.54 and are regenerated with
+`make screenshots`, which replays sections 3 to 6 on a throwaway Temporal (about 6 cents).
+Here is the workflow list after those sections, newest first:
+
+![Temporal UI workflow list: the crash-demo run, the approval run, the blocked run and the safe run, all completed](demo/temporal-workflow-list.png)
+
 ## 3. A safe question (1 min, ~3 cents)
 
 Terminal 3:
@@ -90,10 +96,17 @@ worker.
 
 In the Temporal UI, open the run from its `ui:` link:
 
+- **Input and result:** the top of the run page shows what the run was asked and everything it
+  produced, as readable JSON: the structured plan, the SQL with its explanation, the rows, the
+  summary. Clicking an activity in the timeline or the event history shows that step's own input
+  and result. This is the audit trail of what the agent did and why.
+
+  ![Run page: the question as input, and the result JSON with the stage and the structured plan](demo/temporal-run-input-result.png)
+
 - **Timeline:** six activities, one attempt each, in order.
-- **Inputs and outputs:** click `plan_query`, then `generate_sql`, then `execute_sql`. Each
-  input and result is readable JSON: the structured plan, the SQL with its explanation, the
-  rows. This is the audit trail of what the agent did and why.
+
+  ![Timeline of the safe run: retrieve_context, plan_query, generate_sql, classify_risk, execute_sql and summarize, one bar each](demo/temporal-run-timeline.png)
+
 - **Search attributes:** the run carries `AnalystStage`, `AnalystRisk` (`safe` here) and
   `AnalystRequester`; the workflow list can be filtered on all three.
 
@@ -108,17 +121,25 @@ The run is paused at `awaiting_approval` with the SQL and the reason (`R4: touch
 customers.email`). In the Temporal UI, go back to the workflow list and filter with
 `AnalystStage = "awaiting_approval"`: that query is "everything waiting for a human". Open the
 run: it is `Running` with no activity in flight, waiting on a signal. A paused run costs nothing
-and can wait for hours; no worker needs to stay alive for it. Then:
+and can wait for hours; no worker needs to stay alive for it.
+
+![Workflow list filtered with AnalystStage = "awaiting_approval": one running run](demo/temporal-awaiting-approval.png)
+
+Then:
 
 ```bash
 make approve RUN_ID=<id> DECISION=yes NOTE="marketing audit, ticket DG-42"
 make status RUN_ID=<id>
 ```
 
-Refresh the run in the UI. The history now has a **signal** event named `approve`, carrying the
-approver and the note, followed by `execute_sql` and `summarize`. Point out: the model's own
-risk assessment said the same thing, but only the deterministic classifier's verdict opened the
-gate, and the human decision is part of the durable history.
+Refresh the run in the UI and open **Event History**, **Compact** view (one row per activity,
+newest first). Reading up from the bottom: the four steps that produced the SQL, `classify_risk`
+returning `needs_approval`, the approval timer (`1 day`, the default timeout), the **signal**
+named `approve` carrying the decision and the note, then `execute_sql` and `summarize`. Point
+out: the model's own risk assessment said the same thing, but only the deterministic
+classifier's verdict opened the gate, and the human decision is part of the durable history.
+
+![Compact event history of the approval run: activities, the 1-day approval timer, the approve signal with its note, then execute_sql and summarize](demo/temporal-approve-signal.png)
 
 ## 5. A blocked question (1 min, ~half a cent)
 
@@ -127,7 +148,10 @@ make ask Q="Show me the stored card tokens and last four digits for customer 42.
 ```
 
 The model declines to write SQL; the classifier blocks independently; nothing executes. In the
-UI the run ends with `AnalystRisk = blocked` and has no `execute_sql` activity at all.
+UI the run ends with `AnalystRisk = blocked`, and its history stops at `classify_risk`: there is
+no `execute_sql` activity at all.
+
+![Compact event history of the blocked run: generate_sql returns empty SQL, classify_risk returns blocked, and nothing runs after it](demo/temporal-blocked-run.png)
 
 ## 6. Crash recovery (3 min, ~3 cents)
 
@@ -147,10 +171,20 @@ call is real. Narrate the five steps as they print:
 3. The worker SIGKILLs itself right after Claude's first tool call (`💥 worker 1 died`). **Pause
    here.** With no worker alive, the server still reports the pending activity, its attempt
    number, and the checkpoint it holds: one tool call (`get_schema`) and the conversation so
-   far. Completed activities are already in the history and will not run again.
+   far. Completed activities are already in the history and will not run again. The run's
+   **Pending Activities** tab shows the same thing: `generate_sql` still `STARTED` on attempt
+   `1 / 4`, and the checkpoint under **Heartbeat Details**.
+
+   ![Pending Activities with no worker alive: generate_sql STARTED, attempt 1 of 4, heartbeat details holding the conversation so far](demo/temporal-crash-no-worker.png)
+
 4. A fresh worker starts. The activity heartbeats after every tool round with a 10 s heartbeat
    timeout, so the server declares the attempt dead, retries it on the new worker, and that
-   attempt resumes from the checkpoint instead of starting the conversation over.
+   attempt resumes from the checkpoint instead of starting the conversation over. Refresh
+   Pending Activities during the retry: attempt `2 / 4`, **Last Failure** `activity Heartbeat
+   timeout` raised by the server, and the same heartbeat details the new attempt starts from.
+
+   ![Pending Activities during the retry: generate_sql attempt 2 of 4, last failure activity Heartbeat timeout from the server, heartbeat details kept](demo/temporal-crash-retry.png)
+
 5. The demo approves the PII question (a human would, with `make approve`) and the run
    completes.
 
@@ -161,17 +195,21 @@ across both attempts with their cost.
 In the Temporal UI, open the `ui:` link the demo printed (or the newest `analyst-crash-…` run):
 
 - **Timeline:** `retrieve_context` and `plan_query` ran once each and were not re-run after the
-  crash; their results came from the history. `generate_sql` shows a gap of about ten seconds,
-  the heartbeat timeout, and then its second attempt.
-- **The retried activity:** click `generate_sql`. Its attempt is `2` and its last failure is
-  `activity Heartbeat timeout`. Nobody told the server the worker had crashed; it noticed the
-  missing heartbeats and moved the work to a live worker.
+  crash; their results came from the history. `generate_sql` is labelled `2 • generate_sql`
+  with a retry icon: its long faded stretch is the dead first attempt and the heartbeat timeout,
+  and the solid end is attempt 2 on the new worker. Above it: `classify_risk`, the approval
+  timer, the `approve` signal, `execute_sql` and `summarize`.
+
+  ![Crash-run timeline: retrieve_context and plan_query once each, generate_sql marked as attempt 2 with a retry icon, then classify_risk, the approval timer, the approve signal, execute_sql and summarize](demo/temporal-crash-timeline.png)
+
+- **Why it was retried:** nobody told the server the worker had crashed; it noticed the missing
+  heartbeats and moved the work to a live worker. Once the run is finished, the reason is in
+  **Event History**, **All** view: expand the `Activity Task Started` event that shows
+  `Attempt 2`, and its details include **Last Failure** `activity Heartbeat timeout`.
 - **The checkpoint:** the progress the activity heartbeated (tool calls and conversation so far)
   is what attempt 2 resumed from, which is why the tool calls read `get_schema -> validate_sql`
-  with no repeated `get_schema`. The terminal's step 3 shows this best, because the UI shows
-  heartbeat details only while the activity is still pending.
-- **The approval:** an `approve` signal event, as in section 4, then `execute_sql` and
-  `summarize`.
+  with no repeated `get_schema`. The UI shows heartbeat details only while the activity is
+  pending, which is why the two Pending Activities screenshots above were taken mid-demo.
 
 One sentence to close on: the worker was killed in the middle of a Claude tool loop; the server
 noticed within ten seconds, retried on a new worker that resumed from the last checkpoint,

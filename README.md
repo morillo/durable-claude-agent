@@ -96,7 +96,7 @@ Run `make stop` first; it uses the same ports. CI runs it on every pull request 
 
 `make help` lists every target. `make ps` shows which services are running and on which ports;
 `make stop` stops all of them. Starting, stopping, ports, configuration, and common symptoms are
-in [`docs/RUNBOOK.md`](docs/RUNBOOK.md); the step-by-step demo script with narration is
+in [`docs/RUNBOOK.md`](docs/RUNBOOK.md); the step-by-step demo script with narration and Temporal UI screenshots is
 [`docs/DEMO.md`](docs/DEMO.md).
 
 ## What a run looks like
@@ -243,7 +243,7 @@ src/durable_agent/      workflows · activities · risk · llm · lakehouse · s
 governance/             data_dictionary.md · policies.md (with the machine-readable policy block)
 evals/                  dataset.jsonl · runner · scorers · judge · scorecard · baseline_scorecard.md
 tests/                  135 tests: risk rules exhaustively, workflow on a real dev server, MCP over HTTP, evals, crash recovery
-docs/                   ARCHITECTURE.md · DEMO.md · RUNBOOK.md · EVALS.md · adr/ · demo/crash-recovery.gif
+docs/                   ARCHITECTURE.md · DEMO.md · RUNBOOK.md · EVALS.md · adr/ · demo/ (crash-recovery.gif, Temporal UI screenshots)
 docker-compose.yml      Temporal dev server + Phoenix
 Makefile                every workflow is a target: make help
 ```

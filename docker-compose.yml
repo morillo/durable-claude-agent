@@ -30,8 +30,9 @@ services:
       - --search-attribute=AnalystRisk=Keyword
       - --search-attribute=AnalystRequester=Keyword
     ports:
-      - "7233:7233"   # gRPC frontend
-      - "8233:8233"   # Web UI
+      # Host ports are overridable so `make screenshots` can run a second, throwaway Temporal.
+      - "${TEMPORAL_PORT:-7233}:7233"        # gRPC frontend
+      - "${TEMPORAL_UI_PORT:-8233}:8233"     # Web UI
     volumes:
       - temporal-data:/data
     healthcheck:

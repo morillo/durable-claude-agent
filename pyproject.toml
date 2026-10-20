@@ -38,6 +38,7 @@ dev = [
     "pre-commit>=4.3",
     "pyarrow-stubs>=20",
     "pyright>=1.1.414",
+    "playwright>=1.64.0",
 ]
 
 [build-system]
@@ -74,6 +75,8 @@ ignore = [
 # SQL is assembled from identifiers we own (table names discovered on disk), never user input.
 "src/durable_agent/lakehouse.py" = ["S608"]
 "evals/**" = ["E501"]  # long rubric and report strings
+# Dev tooling: runs docker compose and this repo's own modules with arguments it builds itself.
+"scripts/**" = ["S603", "S607"]
 
 [tool.ruff.format]
 quote-style = "double"
