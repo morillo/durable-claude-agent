@@ -45,7 +45,7 @@ seed: ## Generate the synthetic retail Delta tables under data/lakehouse (zero t
 INDEX_PATH ?= data/index
 
 index: ## Build the LanceDB index over governance/*.md with a local MiniLM model (zero tokens)
-	$(PY) python -m durable_agent.retrieval.index --governance governance --out $(INDEX_PATH)
+	$(PY) python -m durable_agent.retrieval --governance governance --out $(INDEX_PATH)
 
 # ---------------------------------------------------------------------------
 # Services

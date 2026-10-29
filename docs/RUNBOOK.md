@@ -33,22 +33,45 @@ move to the current release: `docker compose pull`, then `make stop` and `make u
 
 ## Start
 
-Each service blocks its terminal and logs there: one terminal per service.
+Terminals are numbered as in the README Quickstart. The MCP server and the worker block their
+terminal and log there until you press Ctrl-C; every other command finishes on its own.
 
-| Terminal | Command | What it is | Stop with |
-|---|---|---|---|
-| 1 | `make temporal` | Temporal dev server (brew-installed CLI), state in `data/temporal.sqlite` | Ctrl-C |
-| 2 | `make mcp` | MCP tool server | Ctrl-C |
-| 3 | `make worker` | Temporal worker running the workflow and activities | Ctrl-C |
-| 4 | `make ask Q="..."` | a question | finishes on its own |
+**Terminal 1: Temporal and Phoenix in Docker** (needs Docker Desktop running). Returns once
+Temporal passes its health check, and fails after 90 s if it never comes up (then read
+`docker compose logs temporal`). Stop them with `make down` or `make stop`.
 
-Alternative for terminal 1: `make up` starts Temporal **and** Phoenix in Docker and returns
-once Temporal passes its health check (it fails after 90 s if Temporal never comes up; see
-`docker compose logs temporal`); `make down` stops them. Do not combine `make temporal` with `make up`: both want
-port 7233. Phoenix alone: `make phoenix`.
+```bash
+make up
+```
 
-Prerequisites for the Temporal CLI route: `brew install temporal`. For the Docker route: Docker
-Desktop running.
+Terminal 1 is also where one-off commands run: `make ask`, `make start`, `make approve`,
+`make status`, `make demo-crash`.
+
+**Terminal 2: the MCP tool server.** Stop with Ctrl-C.
+
+```bash
+make mcp
+```
+
+**Terminal 3: the Temporal worker**, which runs the workflow and activities. Stop with Ctrl-C.
+
+```bash
+make worker
+```
+
+**Without Docker** (needs `brew install temporal`): instead of `make up`, run the Temporal dev
+server in a fourth terminal. It keeps its state in `data/temporal.sqlite`; stop it with Ctrl-C.
+Do not combine it with `make up`: both want port 7233.
+
+```bash
+make temporal
+```
+
+Phoenix alone, for use with `make temporal`:
+
+```bash
+make phoenix
+```
 
 ## Check that the whole setup works
 

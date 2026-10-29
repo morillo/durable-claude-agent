@@ -159,7 +159,7 @@ jobs:
       - name: Seed + index
         run: |
           uv run python -m durable_agent.seed --out data/lakehouse
-          uv run python -m durable_agent.retrieval.index --governance governance --out data/index
+          uv run python -m durable_agent.retrieval --governance governance --out data/index
       - name: Run evals
         run: uv run python -m evals.runner --concurrency 4 --min-execution 0.9
       - uses: actions/upload-artifact@v4

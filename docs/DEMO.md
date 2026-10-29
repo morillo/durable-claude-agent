@@ -41,17 +41,34 @@ table even with the token.
 
 ## 2. Start the services (1 min)
 
-Run every command from the repository root. Full details on starting, stopping, and checking
-services: [`RUNBOOK.md`](RUNBOOK.md).
+Three terminals, all in the repository root, numbered as in the README Quickstart. Full details
+on starting, stopping, and checking services: [`RUNBOOK.md`](RUNBOOK.md).
 
-| Where | Command | Leave it |
-|---|---|---|
-| any terminal, once | `make up` (Temporal + Phoenix in Docker; returns when healthy) | it runs in the background |
-| terminal 1 | `make mcp` | running for the whole demo |
-| terminal 2 | `make worker`, wait for `worker ready` | running until section 6 |
-| terminal 3 | the `make ask` / `start` / `approve` / `demo-crash` commands below | |
+Terminal 1, once: Temporal and Phoenix in Docker. It returns when they are healthy.
 
-Without Docker: `make temporal` in its own terminal instead of `make up` (no Phoenix then).
+```bash
+make up
+```
+
+Without Docker, run this in a fourth terminal instead of `make up` (no Phoenix then):
+
+```bash
+make temporal
+```
+
+Terminal 2: the MCP tool server. Leave it running for the whole demo.
+
+```bash
+make mcp
+```
+
+Terminal 3: the worker. Wait for `worker ready`, and leave it running until section 6.
+
+```bash
+make worker
+```
+
+Terminal 1 runs every command in the sections below.
 
 Open two browser tabs: the Temporal UI at http://localhost:8233 and Phoenix at
 http://localhost:6006.
@@ -79,7 +96,7 @@ Here is the workflow list after those sections, newest first:
 
 ## 3. A safe question (1 min, ~4 cents)
 
-Terminal 3:
+Terminal 1:
 
 ```bash
 make ask Q="What was net revenue by customer country in 2025? Show the top 5 countries."
@@ -157,8 +174,8 @@ no `execute_sql` activity at all.
 
 ## 6. Crash recovery (3 min, ~3 cents)
 
-Stop the worker in terminal 2 (Ctrl-C); the demo starts and kills its own workers. Then, in
-terminal 3:
+Stop the worker: press Ctrl-C in terminal 3. The demo starts and kills its own workers. Then,
+in terminal 1:
 
 ```bash
 make demo-crash
@@ -239,9 +256,9 @@ evidence; a heartbeat timeout found under concurrency.
 | Symptom | Fix |
 |---|---|
 | `Temporal is not reachable` | `make up` (or `make temporal` in its own terminal) |
-| `MCP server is not reachable` | `make mcp` in terminal 1 |
+| `MCP server is not reachable` | `make mcp` in terminal 2 |
 | `poller(s) on task queue` warning in the crash demo | stop `make worker`; a worker stopped in the last minute still shows for a bit, the warning is informational |
-| `make ask` stays at `stage: retrieving` | no worker is running: `make worker` in terminal 2 |
+| `make ask` stays at `stage: retrieving` | no worker is running: `make worker` in terminal 3 |
 | `gold_rows_hash mismatch` in evals | you changed seed data or gold SQL; run `make eval-gold` |
 | `missing data/index/meta.json` | `make index` |
 | Stage stays `generating` for 10 s then continues | that is a heartbeat-timeout retry; check the worker log for the cause |

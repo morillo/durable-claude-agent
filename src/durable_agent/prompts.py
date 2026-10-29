@@ -79,7 +79,9 @@ SUMMARIZE_SYSTEM = """\
 You explain query results to a business analyst. Write a direct plain-English answer with the
 key numbers from the result rows (round money to cents, name the currency as USD). State the
 assumptions and exclusions that were applied (date range, cancelled orders excluded, net vs
-gross, result truncated) as caveats. List the governance citations (file#anchor) that were used.
+gross) as caveats. Say the result was truncated only when the Rows line says "truncated"; a
+LIMIT in the SQL is the requested size, not truncation. List the governance citations
+(file#anchor) that were used.
 Never invent numbers that are not in the rows. If no rows were returned, say so plainly.
 """
 
@@ -124,7 +126,9 @@ def summarize_user(
         sql,
         "",
         f"Columns: {columns}",
-        f"Rows ({len(rows)} returned{', truncated' if truncated else ''}; showing up to 50):",
+        f"Rows ({len(rows)} returned, "
+        f"{'truncated at the row cap' if truncated else 'complete, not truncated'}; "
+        "showing up to 50):",
         *[str(r) for r in preview],
         "",
         f"Governance risk class: {risk_level}",

@@ -89,7 +89,13 @@ cp .env.example .env       # overwrites an existing .env: skip this if you alrea
 ```
 
 Edit `.env`: set `ANTHROPIC_API_KEY`, and set `RUN_SQL_CAPABILITY_TOKEN` to any long random
-string (`python3 -c "import secrets; print(secrets.token_urlsafe(32))"`). Then:
+string. To generate one:
+
+```bash
+python3 -c "import secrets; print(secrets.token_urlsafe(32))"
+```
+
+Then:
 
 ```bash
 make seed && make index    # Delta tables + LanceDB index
@@ -97,10 +103,20 @@ make check                 # ruff · mypy --strict · 135 tests · secrets scan
 make up                    # Temporal (UI :8233) + Phoenix (:6006) in Docker; returns once healthy
 ```
 
-**2. Terminal 2: `make mcp`.** The MCP tool server. Ready when it prints
-`Uvicorn running on http://127.0.0.1:8765`. Leave it running.
+**2. Terminal 2: start the MCP tool server.**
 
-**3. Terminal 3: `make worker`.** The Temporal worker; it is the only process that calls Claude.
+```bash
+make mcp
+```
+
+Ready when it prints `Uvicorn running on http://127.0.0.1:8765`. Leave it running.
+
+**3. Terminal 3: start the Temporal worker.** It is the only process that calls Claude.
+
+```bash
+make worker
+```
+
 Ready when it prints `worker ready: queue=analyst ...`. Leave it running.
 
 **4. Terminal 1: ask a question (about 4 cents).**
@@ -112,34 +128,67 @@ make ask Q="What was net revenue by customer country in 2025? Top 5."
 Done when it prints `== COMPLETED ==`; the `tokens` line shows the real cost. Asking the same
 question again prints `cached=5 cost=$0.0000`: every Claude response came from the local response
 cache in `data/llm_cache.sqlite` ([ADR-008](docs/adr/008-response-cache.md)). For live calls, ask
-something new, or stop the worker (Ctrl-C) and restart it as `LLM_CACHE=false make worker`.
+something new, or press **Ctrl-C** in terminal 3 and restart the worker with the cache off:
+
+```bash
+LLM_CACHE=false make worker
+```
+
 Setting `LLM_CACHE` on `make ask` has no effect, because only the worker calls Claude.
 
-**5. Crash-recovery demo (about 3 cents, always uncached).**
+**5. Terminal 1: run the crash-recovery demo (about 3 cents, always uncached).**
 
-1. Terminal 3: press **Ctrl-C** to stop the worker. The demo starts and kills its own workers;
-   a worker left running could pick up the retried step instead of the demo's.
-2. Terminal 1: `make demo-crash`. A `warning: 1 poller(s)` line right after stopping the worker
-   is normal: Temporal lists a stopped worker for about a minute.
-3. To keep using the agent afterwards, run `make worker` in terminal 3 again.
+First press **Ctrl-C** in terminal 3 to stop the worker. The demo starts and kills its own
+workers; a worker left running could pick up the retried step instead of the demo's. Then, in
+terminal 1:
 
-**When you are done:** Ctrl-C in terminals 2 and 3, then `make stop` in terminal 1. It stops the
-containers and keeps Temporal's history and Phoenix's traces; to start over from a clean slate,
-see [Start over from a clean slate](docs/RUNBOOK.md#start-over-from-a-clean-slate).
+```bash
+make demo-crash
+```
+
+A `warning: 1 poller(s)` line right after stopping the worker is normal: Temporal lists a stopped
+worker for about a minute. To keep using the agent afterwards, run the worker again in
+terminal 3:
+
+```bash
+make worker
+```
+
+**When you are done:** press **Ctrl-C** in terminals 2 and 3, then in terminal 1:
+
+```bash
+make stop
+```
+
+It stops the containers and keeps Temporal's history and Phoenix's traces; to start over from a
+clean slate, see [Start over from a clean slate](docs/RUNBOOK.md#start-over-from-a-clean-slate).
 
 **Optional: check the setup in one command.** `make quickstart-smoke` is a test, not a shortcut
 for the steps above. It runs `make seed`, `make index`, `make up`, `make mcp` and `make worker` in
 the background, with Docker services in a separate Compose project on fresh volumes, checks that
 the worker is polling Temporal, then stops everything and deletes its volumes. Afterwards nothing
-is running, so to use the agent you still follow the steps above. It needs ports 7233, 8233, 8765 and 6006 free, so run `make stop` first. Zero tokens;
-`FULL=1` adds `make ask` and `make demo-crash` (about 7 cents); `ROUTE=brew` tests `make temporal`
-instead of `make up`. CI runs it on every pull request and push. Because it runs every service in
-the background, it checks the commands, not these terminal instructions.
+is running, so to use the agent you still follow the steps above. It needs ports 7233, 8233, 8765
+and 6006 free, so stop your own services first. In terminal 1:
+
+```bash
+make stop
+make quickstart-smoke      # zero tokens
+```
+
+Variants, run instead of `make quickstart-smoke`:
+
+```bash
+make quickstart-smoke FULL=1       # also make ask + make demo-crash, about 7 cents
+make quickstart-smoke ROUTE=brew   # Temporal via make temporal instead of make up
+```
+
+CI runs it on every pull request and push. Because it runs every service in the background, it
+checks the commands, not these terminal instructions.
 
 `make help` lists every target. `make ps` shows which services are running and on which ports;
 `make stop` stops all of them. Starting, stopping, ports, configuration, and common symptoms are
-in [`docs/RUNBOOK.md`](docs/RUNBOOK.md); the step-by-step demo script with narration and Temporal UI screenshots is
-[`docs/DEMO.md`](docs/DEMO.md).
+in [`docs/RUNBOOK.md`](docs/RUNBOOK.md); the step-by-step demo script with narration and Temporal
+UI screenshots is [`docs/DEMO.md`](docs/DEMO.md).
 
 ## What a run looks like
 

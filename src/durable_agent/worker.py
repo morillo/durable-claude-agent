@@ -62,7 +62,10 @@ def main() -> int:
     logging.basicConfig(
         level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s"
     )
-    logging.getLogger("httpx2").setLevel(logging.WARNING)
+    # One INFO line per HTTP request otherwise: httpx2 (Anthropic SDK, MCP client) and httpx
+    # (Hugging Face Hub, when the embedding model loads).
+    for noisy in ("httpx2", "httpx"):
+        logging.getLogger(noisy).setLevel(logging.WARNING)
     with contextlib.suppress(KeyboardInterrupt):
         asyncio.run(run_worker(get_settings()))
     shutdown_tracing()

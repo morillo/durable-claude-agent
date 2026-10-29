@@ -15,6 +15,9 @@ def main() -> int:
     logging.basicConfig(
         level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s"
     )
+    # Hugging Face Hub logs every model-file check through httpx when search_governance first
+    # loads the embedding model.
+    logging.getLogger("httpx").setLevel(logging.WARNING)
     settings = get_settings()
     setup_tracing(settings, service_name="governed-lakehouse-mcp")
     if settings.run_sql_capability_token is None:
