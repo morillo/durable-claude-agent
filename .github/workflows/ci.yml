@@ -11,7 +11,7 @@ on:
         type: boolean
         default: false
       run_quickstart_full:
-        description: "Quickstart smoke also runs make ask + make demo-crash (~5 cents)"
+        description: "Quickstart smoke also runs make ask + make demo-crash (~7 cents)"
         type: boolean
         default: false
       capture_screenshots:

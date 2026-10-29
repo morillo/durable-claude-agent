@@ -218,7 +218,7 @@ async def run_demo(settings: Settings) -> int:
             break
         await asyncio.sleep(0.5)
     say(
-        f"     server retried generate_sql after {time.time() - t0:.1f}s"
+        f"     server retried generate_sql {time.time() - t0:.1f}s after worker 2 started"
         + (
             f" (attempt={p['attempt']}, cause: {p['last_failure'] or 'heartbeat timeout'})"
             if p

@@ -152,8 +152,9 @@ changing the OTLP endpoint.
 **Around the system.** Evals run the real workflow on a private Temporal dev server, so the
 approval metric is read from what Temporal actually scheduled
 ([ADR-010](adr/010-evals-through-the-workflow.md)). `detect-secrets` runs in pre-commit and CI
-([ADR-011](adr/011-secrets-scanning.md)). `make quickstart-smoke` runs the README Quickstart in
-CI on every change, and Docker Compose runs Temporal and Phoenix locally.
+([ADR-011](adr/011-secrets-scanning.md)). `make quickstart-smoke` runs the README Quickstart's
+commands in CI on every change (services in the background, zero tokens), and Docker Compose runs
+Temporal and Phoenix locally.
 
 ## Sequence of one run
 

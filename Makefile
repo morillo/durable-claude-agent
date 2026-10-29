@@ -123,7 +123,7 @@ demo-crash: ## Kill the worker mid-generate_sql, restart it, show the run resume
 
 FULL ?= 0
 ROUTE ?= docker
-quickstart-smoke: ## Run the README Quickstart from fresh Docker volumes and check every step (zero tokens; FULL=1 adds ask + demo-crash, ~5 cents; ROUTE=brew uses `make temporal`)
+quickstart-smoke: ## Run the README Quickstart from fresh Docker volumes and check every step (zero tokens; FULL=1 adds ask + demo-crash, ~7 cents; ROUTE=brew uses `make temporal`)
 	FULL=$(FULL) ROUTE=$(ROUTE) bash scripts/quickstart-smoke.sh
 
 docs-check: ## Render every Mermaid diagram in the Markdown docs; fails on any that GitHub could not render (needs Node)
