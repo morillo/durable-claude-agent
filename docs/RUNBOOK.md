@@ -55,15 +55,21 @@ Desktop running.
 ```bash
 make stop                          # the smoke test needs ports 7233, 8233, 8765, 6006 free
 make quickstart-smoke              # zero tokens
-make quickstart-smoke FULL=1       # also make ask + make demo-crash, about 5 cents
+make quickstart-smoke FULL=1       # also make ask + make demo-crash, about 7 cents
 make quickstart-smoke ROUTE=brew   # Temporal via `make temporal` instead of `make up`
 ```
 
-Runs the README Quickstart from fresh Docker volumes (a separate compose project, `dca-smoke`),
-after pulling the `latest` Temporal and Phoenix images the way a fresh clone would, and checks that the worker is polling Temporal. Your own volumes, `data/temporal.sqlite` and
-`.env` are left alone; if `.env` is missing it creates one from `.env.example`. Prints
-`QUICKSTART SMOKE PASSED`, or the failing step plus the last lines of each service log. Service
-logs stay in `data/quickstart-smoke/`. CI runs the docker route on every pull request and push to
+A test of the README Quickstart, not a way to set it up. It runs `make seed`, `make index`,
+`make up`, `make mcp` and `make worker` in the background, with the Docker services in a separate
+compose project (`dca-smoke`) on fresh volumes after pulling the `latest` Temporal and Phoenix
+images the way a fresh clone would, and checks that the worker is polling Temporal. Then it stops
+everything it started and deletes its volumes: afterwards nothing is running, so to use the agent
+you start the services as in [Start](#start). Your own volumes, `data/temporal.sqlite` and `.env`
+are left alone; if `.env` is missing it creates one from `.env.example`. `data/lakehouse/` and
+`data/index/` are rebuilt in place (with identical contents). Prints `QUICKSTART SMOKE PASSED`,
+or the failing step plus the last lines of each service log. Service logs stay in
+`data/quickstart-smoke/`. Because every service runs in the background, it checks the commands,
+not the README's terminal instructions. CI runs the docker route on every pull request and push to
 `main`; a manual CI dispatch with `run_quickstart_full` runs `FULL=1`.
 
 ## Which services does each command need?
@@ -73,7 +79,7 @@ logs stay in `data/quickstart-smoke/`. CI runs the docker route on every pull re
 | `make check`, `make test`, `make eval`, `make smoke-mcp` | nothing: they start private servers and stop them |
 | `make seed`, `make index` | nothing |
 | `make ask`, `make start`, `make approve`, `make status` | Temporal, MCP server, worker |
-| `make demo-crash` | Temporal and MCP server only. Stop `make worker` first; the demo starts and kills its own workers |
+| `make demo-crash` | Temporal and MCP server only. Stop `make worker` first (Ctrl-C in its terminal); the demo starts and kills its own workers, and always runs with the response cache off |
 | `make record-demo` | same as `demo-crash`, plus `brew install vhs` |
 | `make docs-check` | nothing; Node (`npx`) and Chromium (`uv run playwright install chromium`). Renders every Mermaid diagram in the Markdown docs, as CI does |
 | `make screenshots` | nothing, but a real `ANTHROPIC_API_KEY` in `.env` and Chromium (`uv run playwright install chromium`). It runs its own Temporal (ports 17233/18233, via `TEMPORAL_PORT`/`TEMPORAL_UI_PORT`), MCP server (18765) and worker beside yours, tracing off; ~6 cents |
@@ -104,13 +110,30 @@ kill <pid>
 |---|---|---|
 | Temporal runs and history (`make temporal`) | `data/temporal.sqlite` | delete the file (while Temporal is stopped) |
 | Temporal runs and history (`make up`) | Docker volume `temporal-data` | `docker compose down -v` (also clears Phoenix) |
-| LLM response cache | `data/llm_cache.sqlite` | delete the file, or set `LLM_CACHE=false` |
+| LLM response cache | `data/llm_cache.sqlite` | delete the file, or start the worker as `LLM_CACHE=false make worker` (only the worker reads it; setting it on `make ask` has no effect) |
 | Seeded lakehouse | `data/lakehouse/` | `make seed` (deterministic; same data every time) |
 | Retrieval index | `data/index/` | `make index` |
 | Phoenix traces | Docker volume `phoenix-data` | `docker compose down -v` |
 | Eval results | `evals/results/<timestamp>/` | delete folders; `make scorecard` shows the latest |
 
 Everything under `data/` and `evals/results/` is gitignored.
+
+## Start over from a clean slate
+
+To run the README Quickstart again as a first-time user would, without deleting the folder:
+
+```bash
+# first press Ctrl-C in the terminals running make mcp, make worker (and make temporal)
+make stop                                  # stops anything still running and the containers
+docker compose down -v --remove-orphans    # deletes the Temporal history and Phoenix trace volumes
+git clean -fdX -e '!.env'                  # deletes every gitignored file except .env
+```
+
+`git clean -X` only touches gitignored files, so tracked code is never deleted. It removes
+`.venv/`, `data/` (including the LLM response cache, so the next `make ask` makes real calls),
+`evals/results/` and the tool caches. Run it with `-n` in place of `-f` to preview the list, and
+add `-e '!<path>'` for anything else to keep, such as `.vscode/`. Then follow the README
+Quickstart from `make install`, skipping `cp .env.example .env`, which would overwrite your `.env`.
 
 ## Logs
 

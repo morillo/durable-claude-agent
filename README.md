@@ -74,25 +74,67 @@ one-paragraph ADR in [`docs/adr/`](docs/adr/README.md).
 
 Prerequisites: Python 3.12, [uv](https://docs.astral.sh/uv/), Docker Desktop running (`make up`
 starts Temporal and Phoenix in Docker), an Anthropic API key. Without Docker, `brew install
-temporal` and run `make temporal` instead of `make up` (no Phoenix traces then).
+temporal` and run `make temporal` in its own terminal instead of `make up` (no Phoenix traces
+then).
+
+The steps use three terminals, all in the repository folder. `make mcp` and `make worker` keep
+running in their terminal until you press Ctrl-C; every other command finishes on its own.
+
+**1. Terminal 1: set up (once, zero tokens).**
 
 ```bash
 git clone https://github.com/morillo/durable-claude-agent && cd durable-claude-agent
-make install                      # uv sync + pre-commit hooks
-cp .env.example .env              # set ANTHROPIC_API_KEY and RUN_SQL_CAPABILITY_TOKEN
-make seed && make index           # Delta tables + LanceDB index, zero tokens
-make check                        # ruff · mypy --strict · 135 tests · secrets scan
-make up                           # Temporal (UI :8233) + Phoenix (:6006); waits until healthy
-make mcp                          # terminal 2: MCP tool server
-make worker                       # terminal 3: Temporal worker
-make ask Q="What was net revenue by customer country in 2025? Top 5."    # ~3 cents
-make demo-crash                   # stop the worker first; ~2 cents
+make install               # uv sync + pre-commit hooks
+cp .env.example .env       # overwrites an existing .env: skip this if you already have one
 ```
 
-Not sure your machine is set up right? `make quickstart-smoke` runs the steps above from fresh
-Docker volumes and stops at the first one that fails (zero tokens; `FULL=1` adds `make ask` and
-`make demo-crash` for about 5 cents; `ROUTE=brew` tests `make temporal` instead of `make up`).
-Run `make stop` first; it uses the same ports. CI runs it on every pull request and push.
+Edit `.env`: set `ANTHROPIC_API_KEY`, and set `RUN_SQL_CAPABILITY_TOKEN` to any long random
+string (`python3 -c "import secrets; print(secrets.token_urlsafe(32))"`). Then:
+
+```bash
+make seed && make index    # Delta tables + LanceDB index
+make check                 # ruff · mypy --strict · 135 tests · secrets scan
+make up                    # Temporal (UI :8233) + Phoenix (:6006) in Docker; returns once healthy
+```
+
+**2. Terminal 2: `make mcp`.** The MCP tool server. Ready when it prints
+`Uvicorn running on http://127.0.0.1:8765`. Leave it running.
+
+**3. Terminal 3: `make worker`.** The Temporal worker; it is the only process that calls Claude.
+Ready when it prints `worker ready: queue=analyst ...`. Leave it running.
+
+**4. Terminal 1: ask a question (about 4 cents).**
+
+```bash
+make ask Q="What was net revenue by customer country in 2025? Top 5."
+```
+
+Done when it prints `== COMPLETED ==`; the `tokens` line shows the real cost. Asking the same
+question again prints `cached=5 cost=$0.0000`: every Claude response came from the local response
+cache in `data/llm_cache.sqlite` ([ADR-008](docs/adr/008-response-cache.md)). For live calls, ask
+something new, or stop the worker (Ctrl-C) and restart it as `LLM_CACHE=false make worker`.
+Setting `LLM_CACHE` on `make ask` has no effect, because only the worker calls Claude.
+
+**5. Crash-recovery demo (about 3 cents, always uncached).**
+
+1. Terminal 3: press **Ctrl-C** to stop the worker. The demo starts and kills its own workers;
+   a worker left running could pick up the retried step instead of the demo's.
+2. Terminal 1: `make demo-crash`. A `warning: 1 poller(s)` line right after stopping the worker
+   is normal: Temporal lists a stopped worker for about a minute.
+3. To keep using the agent afterwards, run `make worker` in terminal 3 again.
+
+**When you are done:** Ctrl-C in terminals 2 and 3, then `make stop` in terminal 1. It stops the
+containers and keeps Temporal's history and Phoenix's traces; to start over from a clean slate,
+see [Start over from a clean slate](docs/RUNBOOK.md#start-over-from-a-clean-slate).
+
+**Optional: check the setup in one command.** `make quickstart-smoke` is a test, not a shortcut
+for the steps above. It runs `make seed`, `make index`, `make up`, `make mcp` and `make worker` in
+the background, with Docker services in a separate Compose project on fresh volumes, checks that
+the worker is polling Temporal, then stops everything and deletes its volumes. Afterwards nothing
+is running, so to use the agent you still follow the steps above. It needs ports 7233, 8233, 8765 and 6006 free, so run `make stop` first. Zero tokens;
+`FULL=1` adds `make ask` and `make demo-crash` (about 7 cents); `ROUTE=brew` tests `make temporal`
+instead of `make up`. CI runs it on every pull request and push. Because it runs every service in
+the background, it checks the commands, not these terminal instructions.
 
 `make help` lists every target. `make ps` shows which services are running and on which ports;
 `make stop` stops all of them. Starting, stopping, ports, configuration, and common symptoms are
@@ -174,9 +216,9 @@ Claude calls            = 5 real API calls across both attempts
 | Re-running an activity has no duplicate side effects. | **Me**: all SQL is read-only; LLM calls are cached by request hash; execution is bounded. |
 | The checkpoint reaches the server before the crash. | **Me**: heartbeats flush on the event loop, so the crash hook yields before dying. A blocking sleep silently loses the checkpoint; the first demo run proved it. |
 
-Two limits: the heartbeat timeout is the recovery-latency floor (about 7 s here), and a turn
-that completes after the last heartbeat is repeated on retry, which the response cache then
-serves for free.
+Two limits: the heartbeat timeout is the recovery-latency floor (10 s after the last heartbeat,
+`heartbeat_timeout` in `workflows.py`), and a turn that completes after the last heartbeat is
+repeated on retry, which the response cache then serves for free.
 
 ## Tool authorization: why enforcement lives in the tool
 
@@ -211,7 +253,7 @@ off. The final summary and the CLI report include total token cost per workflow.
 - **Evaluation as an engineering loop.** A dataset with gold SQL and expected risk classes, five
   scorers, a committed baseline, and a record of what the first iteration changed and why.
 - **Cost that is visible.** Every call is priced; every run and every scorecard reports dollars.
-  A full eval costs under a dollar; a typical question costs two to three cents.
+  A full eval costs under a dollar; a typical question costs about four cents uncached.
 - **Secrets hygiene from the first commit.** No secrets in the repo, `detect-secrets` on every
   commit and in CI, and a capability token that never appears in a prompt or a schema.
 

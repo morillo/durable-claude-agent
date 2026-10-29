@@ -2,7 +2,7 @@
 # Run the README Quickstart the way a fresh clone does, and fail loudly on the first broken step.
 #
 #   make quickstart-smoke           # zero tokens: seed, index, make up, make mcp, make worker
-#   make quickstart-smoke FULL=1    # also make ask and make demo-crash (~5 cents, needs a real key)
+#   make quickstart-smoke FULL=1    # also make ask and make demo-crash (~7 cents, needs a real key)
 #   make quickstart-smoke ROUTE=brew  # Temporal via `make temporal` (brew CLI) instead of `make up`
 #
 # Docker services run as a separate compose project (dca-smoke) on brand-new volumes, exactly
@@ -96,7 +96,7 @@ wait_for 30 "worker polling task queue '$QUEUE'" worker_polling
 echo "worker is connected to Temporal and polling '$QUEUE'"
 
 if [ "$FULL" != "1" ]; then
-  echo "(skipping make ask and make demo-crash: run with FULL=1 to spend ~5 cents on them)"
+  echo "(skipping make ask and make demo-crash: run with FULL=1 to spend ~7 cents on them)"
   exit 0
 fi
 

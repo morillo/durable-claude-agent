@@ -11,7 +11,7 @@ does; the Temporal UI shows the evidence that it did it, and that it survives a 
 
 ```bash
 make install                 # uv sync + pre-commit hooks
-cp .env.example .env         # then set ANTHROPIC_API_KEY and RUN_SQL_CAPABILITY_TOKEN
+cp .env.example .env         # overwrites an existing .env; then set the API key and token
 make seed                    # 11,945 rows as Delta tables under data/lakehouse/
 make index                   # LanceDB index over governance/*.md (downloads MiniLM once)
 make check                   # ruff, mypy --strict, 135 tests, secrets scan
@@ -24,7 +24,8 @@ python3 -c "import secrets; print(secrets.token_urlsafe(32))"
 ```
 
 To confirm the whole setup works before an audience sees it, run `make stop` and then
-`make quickstart-smoke` (zero tokens; details in [`RUNBOOK.md`](RUNBOOK.md)).
+`make quickstart-smoke` (zero tokens; details in [`RUNBOOK.md`](RUNBOOK.md)). It is a test: it
+stops everything it started, so start the services in section 2 afterwards.
 
 ## 1. The governed lakehouse and the classifier (2 min, zero tokens)
 
@@ -76,7 +77,7 @@ Here is the workflow list after those sections, newest first:
 
 ![Temporal UI workflow list: the crash-demo run, the approval run, the blocked run and the safe run, all completed](demo/temporal-workflow-list.png)
 
-## 3. A safe question (1 min, ~3 cents)
+## 3. A safe question (1 min, ~4 cents)
 
 Terminal 3:
 
@@ -91,8 +92,9 @@ and that the citations include `data_dictionary.md#net-revenue`.
 If the `tokens` line says `cached=5 cost=$0.0000`, the same question was asked before and every
 Claude call was answered from the local response cache ([ADR-008](adr/008-response-cache.md));
 the stages then jump straight to `completed`. That is a talking point, not a problem. For live
-calls, change the wording of the question, or set `LLM_CACHE=false` in `.env` and restart the
-worker.
+calls, change the wording of the question, or stop the worker (Ctrl-C) and restart it as
+`LLM_CACHE=false make worker`. Only the worker reads `LLM_CACHE`; setting it on `make ask` has no
+effect.
 
 In the Temporal UI, open the run from its `ui:` link:
 
