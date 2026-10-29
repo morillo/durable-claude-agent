@@ -129,7 +129,7 @@ jobs:
         run: make seed index
       - name: make screenshots
         run: make screenshots
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: temporal-ui-screenshots
@@ -162,7 +162,7 @@ jobs:
           uv run python -m durable_agent.retrieval --governance governance --out data/index
       - name: Run evals
         run: uv run python -m evals.runner --concurrency 4 --min-execution 0.9
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: eval-results
           path: evals/results/
